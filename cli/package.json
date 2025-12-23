@@ -31,9 +31,12 @@
   "keywords": [
     "tachiyomi",
     "manga",
+    "comic",
+    "reader",
     "extension",
     "cli",
-    "bun"
+    "bun",
+    "nemu"
   ],
   "license": "MIT"
 }

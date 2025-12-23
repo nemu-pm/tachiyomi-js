@@ -67,8 +67,12 @@
   "keywords": [
     "tachiyomi",
     "manga",
+    "comic",
+    "reader",
     "extension",
-    "runtime"
+    "runtime",
+    "kotlin-js",
+    "nemu"
   ],
   "license": "MIT",
   "dependencies": {
