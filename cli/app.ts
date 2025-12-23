@@ -3,6 +3,7 @@ import { list } from "./commands/list";
 import { info } from "./commands/info";
 import { build } from "./commands/build";
 import { testRoutes } from "./commands/test";
+import { explore } from "./commands/explore";
 
 const routes = buildRouteMap({
   routes: {
@@ -10,6 +11,7 @@ const routes = buildRouteMap({
     info,
     build,
     test: testRoutes,
+    explore,
   },
   docs: {
     brief: "Tachiyomi extension development CLI",

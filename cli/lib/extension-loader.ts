@@ -64,13 +64,25 @@ export function unwrapResult<T>(json: string): T {
   return result.data as T;
 }
 
+export interface ExtensionListItem {
+  id: string; // lang/name format
+  name: string;
+  lang: string;
+  isNsfw: boolean;
+}
+
 /** List available built extensions (returns lang/name format) */
 export function listExtensions(outputDir: string): string[] {
+  return listExtensionsWithInfo(outputDir).map((e) => e.id);
+}
+
+/** List available built extensions with manifest info */
+export function listExtensionsWithInfo(outputDir: string): ExtensionListItem[] {
   if (!fs.existsSync(outputDir)) {
     return [];
   }
 
-  const extensions: string[] = [];
+  const extensions: ExtensionListItem[] = [];
 
   // Iterate over lang directories
   for (const lang of fs.readdirSync(outputDir)) {
@@ -82,7 +94,22 @@ export function listExtensions(outputDir: string): string[] {
       const extDir = path.join(langDir, name);
       const manifestPath = path.join(extDir, "manifest.json");
       if (fs.statSync(extDir).isDirectory() && fs.existsSync(manifestPath)) {
-        extensions.push(`${lang}/${name}`);
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as ExtensionManifest;
+          extensions.push({
+            id: `${lang}/${name}`,
+            name: manifest.name,
+            lang,
+            isNsfw: manifest.nsfw ?? false,
+          });
+        } catch {
+          extensions.push({
+            id: `${lang}/${name}`,
+            name,
+            lang,
+            isNsfw: false,
+          });
+        }
       }
     }
   }
