@@ -4,11 +4,11 @@ Compiler and runtime for running [Tachiyomi](https://github.com/keiyoushi/extens
 
 > **Disclaimer:** This repository does not contain any extension source code.
 
-## Packages
+## Structure
 
-- **`packages/shim`** - Android/JVM API shims for Kotlin/JS
-- **`packages/compiler`** - Kotlin → JavaScript compiler
-- **`packages/runtime`** - TypeScript runtime for loading compiled extensions
+- **`shim/`** - Android/JVM API shims for Kotlin/JS
+- **`compiler/`** - Kotlin → JavaScript compiler  
+- **`runtime/`** - TypeScript runtime for loading compiled extensions
 
 ## Usage
 
@@ -34,10 +34,10 @@ const manga = await extension.getPopularManga(1);
 
 ```bash
 # Build the shim
-cd packages/shim && ./gradlew compileKotlinJs
+cd shim && ./gradlew compileKotlinJs
 
 # Build the runtime
-cd packages/runtime && bun run build
+cd runtime && bun run build
 ```
 
 ## License
