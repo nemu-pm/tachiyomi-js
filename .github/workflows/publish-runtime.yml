@@ -20,16 +20,16 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       
       - name: Install dependencies
-        working-directory: runtime
         run: bun install
+        working-directory: runtime
       
       - name: Build
-        working-directory: runtime
         run: bun run build
+        working-directory: runtime
       
       - name: Set version from tag
         working-directory: runtime
@@ -39,5 +39,5 @@ jobs:
           npm pkg set version="$VERSION"
       
       - name: Publish to npm
+        run: npm publish --access public --provenance
         working-directory: runtime
-        run: npm publish --access public
