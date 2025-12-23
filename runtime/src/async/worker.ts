@@ -365,14 +365,10 @@ const workerApi = {
 
   fetchImage(sourceId: string, pageUrl: string, pageImageUrl: string): string {
     if (!extension) {
-      return pageImageUrl;
+      throw new Error("Extension not loaded");
     }
-    try {
-      return extension.fetchImage(sourceId, pageUrl, pageImageUrl);
-    } catch (e) {
-      console.warn("[Tachiyomi Worker] fetchImage error, falling back to URL:", e);
-      return pageImageUrl;
-    }
+    // Always returns base64 bytes (like Mihon's getImage)
+    return extension.fetchImage(sourceId, pageUrl, pageImageUrl);
   },
 
   getHeaders(sourceId: string): Record<string, string> {

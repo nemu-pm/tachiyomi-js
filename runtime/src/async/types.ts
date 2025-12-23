@@ -54,10 +54,11 @@ export interface AsyncTachiyomiSource {
  */
 export interface AsyncLoadOptions {
   /**
-   * Proxy URL function for CORS bypass (browser only)
-   * Example: (url) => `https://proxy.example.com/?url=${encodeURIComponent(url)}`
+   * Proxy URL base for CORS bypass (browser only)
+   * The target URL will be appended (URL-encoded)
+   * Example: "https://proxy.example.com/?url="
    */
-  proxyUrl?: (url: string) => string;
+  proxyUrl?: string;
 
   /**
    * Initial preferences values

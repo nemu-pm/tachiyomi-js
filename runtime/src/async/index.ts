@@ -56,14 +56,11 @@ export async function loadExtension(
     await workerApi.initPreferences(preferences.name, preferences.values);
   }
 
-  // Get proxy URL string
-  const proxyUrlString = proxyUrl ? "" : null; // We'll pass the function result
-  
   // Load extension in worker
   const result = await workerApi.load(
     jsUrl,
     manifest,
-    proxyUrl ? "PROXY_PLACEHOLDER" : null // Worker will handle proxy
+    proxyUrl ?? null
   );
 
   if (!result.success || !result.manifest) {

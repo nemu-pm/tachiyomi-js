@@ -1,13 +1,17 @@
 plugins {
     `kotlin-dsl`
-    kotlin("plugin.serialization") version "2.1.0"
 }
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
-dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+gradlePlugin {
+    plugins {
+        register("tachiyomi") {
+            id = "tachiyomi"
+            implementationClass = "TachiyomiPlugin"
+        }
+    }
 }
-

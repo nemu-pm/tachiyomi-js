@@ -7,10 +7,11 @@ import { spawnSync } from "child_process";
 
 export interface SyncNodeOptions {
   /**
-   * Proxy URL function - transforms target URL
+   * Proxy URL base - transforms target URL
    * Not typically needed in Node.js (no CORS)
+   * Example: "https://proxy.example.com/?url="
    */
-  proxyUrl?: (url: string) => string;
+  proxyUrl?: string;
 }
 
 /**
@@ -23,7 +24,7 @@ export function createSyncNodeBridge(options: SyncNodeOptions = {}): HttpBridge 
   return {
     request(req: HttpRequest, wantBytes: boolean): HttpResponse {
       try {
-        const url = proxyUrl ? proxyUrl(req.url) : req.url;
+        const url = proxyUrl ? `${proxyUrl}${encodeURIComponent(req.url)}` : req.url;
 
         // Build curl command
         const args: string[] = [

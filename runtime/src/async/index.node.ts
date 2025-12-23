@@ -324,12 +324,8 @@ function createLoadedExtension(
         },
 
         async fetchImage(pageUrl, pageImageUrl) {
-          try {
-            return extension.fetchImage(sourceId, pageUrl, pageImageUrl);
-          } catch (e) {
-            console.warn("[Tachiyomi Node] fetchImage error, falling back to URL:", e);
-            return pageImageUrl;
-          }
+          // Always returns base64 bytes (like Mihon's getImage)
+          return extension.fetchImage(sourceId, pageUrl, pageImageUrl);
         },
 
         async getHeaders() {
