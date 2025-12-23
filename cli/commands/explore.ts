@@ -311,10 +311,12 @@ async function browsePagesMenu(
   chapter: Chapter,
   pages: Page[]
 ) {
+  let lastSelectedIdx = 0;
+
   while (true) {
     const choices = [
       ...pages.map((p) => ({
-        name: `Page ${String(p.index + 1).padStart(3, "0")}: ${(p.imageUrl || p.url || "").slice(0, 60)}...`,
+        name: `Page ${String(p.index + 1).padStart(3, "0")}: ${(p.imageUrl || "").slice(0, 60)}${(p.imageUrl || "").length > 60 ? "..." : ""}`,
         value: String(p.index),
       })),
       { name: "⬅ Back", value: "back" },
@@ -324,11 +326,13 @@ async function browsePagesMenu(
       message: "Select a page:",
       choices,
       pageSize: 20,
+      default: String(lastSelectedIdx),
     });
 
     if (pageChoice === "back") break;
 
-    const page = pages[parseInt(pageChoice)];
+    lastSelectedIdx = parseInt(pageChoice);
+    const page = pages[lastSelectedIdx];
     await showSinglePage(exports, sourceId, manga, chapter, page);
   }
 }
