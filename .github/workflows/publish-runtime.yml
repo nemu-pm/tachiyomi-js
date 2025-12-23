@@ -32,19 +32,12 @@ jobs:
         working-directory: runtime
         run: bun run build
       
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#runtime-v}" >> $GITHUB_OUTPUT
-      
-      - name: Verify version matches package.json
+      - name: Set version from tag
         working-directory: runtime
         run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          if [ "$PKG_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
-            echo "❌ Tag version (${{ steps.version.outputs.VERSION }}) doesn't match package.json ($PKG_VERSION)"
-            exit 1
-          fi
-          echo "✅ Version matches: $PKG_VERSION"
+          VERSION="${GITHUB_REF_NAME#runtime-v}"
+          echo "Publishing version: $VERSION"
+          npm pkg set version="$VERSION"
       
       # Trusted Publishing: no NPM_TOKEN needed!
       - name: Publish to npm (Trusted Publishing)

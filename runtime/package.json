@@ -1,6 +1,6 @@
 {
   "name": "@nemu.pm/tachiyomi-runtime",
-  "version": "0.1.3",
+  "version": "0.0.0-dev",
   "description": "Runtime for loading and executing Tachiyomi extensions compiled to JavaScript",
   "repository": {
     "type": "git",
