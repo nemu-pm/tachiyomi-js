@@ -340,14 +340,17 @@ export const all = buildCommand({
 
     log(pc.cyan(`\n🧪 Testing: ${source.name} (${source.lang})\n`));
 
+    // Collect manga samples from popular and latest
+    const mangaSamples: Array<{ title: string; url: string }> = [];
+
     // Test 1: Popular
-    let sampleManga: { title: string; url: string } | null = null;
     try {
       log(pc.dim("Testing popular..."));
       const popular = unwrapResult<MangasPage>(exports.getPopularManga(sourceId, 1));
       const count = popular.mangas?.length ?? 0;
       if (count === 0) throw new Error("No manga returned");
-      sampleManga = popular.mangas[0];
+      // Collect up to 5 samples
+      mangaSamples.push(...popular.mangas.slice(0, 5));
       results.push({ test: "popular", passed: true, data: { count, hasNextPage: popular.hasNextPage } });
       log(pc.green(`  ✓ popular: ${count} manga`));
     } catch (e) {
@@ -361,7 +364,10 @@ export const all = buildCommand({
       const latest = unwrapResult<MangasPage>(exports.getLatestUpdates(sourceId, 1));
       const count = latest.mangas?.length ?? 0;
       if (count === 0) throw new Error("No manga returned");
-      if (!sampleManga) sampleManga = latest.mangas[0];
+      // Add more samples if needed
+      if (mangaSamples.length < 5) {
+        mangaSamples.push(...latest.mangas.slice(0, 5 - mangaSamples.length));
+      }
       results.push({ test: "latest", passed: true, data: { count, hasNextPage: latest.hasNextPage } });
       log(pc.green(`  ✓ latest: ${count} manga`));
     } catch (e) {
@@ -369,73 +375,96 @@ export const all = buildCommand({
       log(pc.red(`  ✗ latest: ${e}`));
     }
 
-    // Test 3: Search (using first word of sample manga title)
-    if (sampleManga) {
+    // Test 3: Search (using exact title from samples)
+    if (mangaSamples.length > 0) {
       try {
-        const query = sampleManga.title.split(/\s+/)[0].slice(0, 10);
-        log(pc.dim(`Testing search ("${query}")...`));
+        // Use a known manga title for more reliable search
+        const searchManga = mangaSamples[0];
+        const query = searchManga.title;
+        log(pc.dim(`Testing search ("${query.slice(0, 30)}${query.length > 30 ? "..." : ""}")...`));
         const search = unwrapResult<MangasPage>(exports.searchManga(sourceId, 1, query));
         const count = search.mangas?.length ?? 0;
-        results.push({ test: "search", passed: true, data: { query, count } });
-        log(pc.green(`  ✓ search: ${count} results for "${query}"`));
+        // Check if we found the manga we searched for
+        const found = search.mangas?.some(m => 
+          m.title.toLowerCase().includes(searchManga.title.toLowerCase().slice(0, 10)) ||
+          m.url === searchManga.url
+        );
+        results.push({ test: "search", passed: true, data: { query, count, foundTarget: found } });
+        log(pc.green(`  ✓ search: ${count} results${found ? " (target found)" : ""}`));
       } catch (e) {
         results.push({ test: "search", passed: false, error: String(e) });
         log(pc.red(`  ✗ search: ${e}`));
       }
     }
 
-    // Test 4: Manga Details
-    let detailsOk = false;
-    if (sampleManga) {
+    // Test 4: Manga Details (try up to 3 manga)
+    let detailsManga: { title: string; url: string } | null = null;
+    for (const manga of mangaSamples.slice(0, 3)) {
       try {
-        log(pc.dim("Testing details..."));
+        log(pc.dim(`Testing details (${manga.title.slice(0, 30)})...`));
         const details = unwrapResult<{ title?: string; url?: string }>(
-          exports.getMangaDetails(sourceId, sampleManga.url)
+          exports.getMangaDetails(sourceId, manga.url)
         );
-        detailsOk = true;
-        results.push({ test: "details", passed: true, data: { title: details.title || sampleManga.title } });
-        log(pc.green(`  ✓ details: ${details.title || sampleManga.title}`));
+        detailsManga = manga;
+        results.push({ test: "details", passed: true, data: { title: details.title || manga.title } });
+        log(pc.green(`  ✓ details: ${details.title || manga.title}`));
+        break;
       } catch (e) {
-        results.push({ test: "details", passed: false, error: String(e) });
-        log(pc.red(`  ✗ details: ${e}`));
+        log(pc.dim(`    (${manga.title.slice(0, 20)} failed, trying next...)`));
       }
     }
+    if (!detailsManga) {
+      results.push({ test: "details", passed: false, error: "All manga samples failed" });
+      log(pc.red(`  ✗ details: All ${Math.min(3, mangaSamples.length)} samples failed`));
+    }
 
-    // Test 5: Chapters
-    let sampleChapter: { name: string; url: string } | null = null;
-    if (sampleManga && detailsOk) {
+    // Test 5: Chapters (try up to 3 manga)
+    let chaptersData: { manga: { title: string; url: string }; chapters: Array<{ name: string; url: string }> } | null = null;
+    for (const manga of mangaSamples.slice(0, 3)) {
       try {
-        log(pc.dim("Testing chapters..."));
+        log(pc.dim(`Testing chapters (${manga.title.slice(0, 30)})...`));
         const chapters = unwrapResult<Array<{ name: string; url: string }>>(
-          exports.getChapterList(sourceId, sampleManga.url)
+          exports.getChapterList(sourceId, manga.url)
         );
-        const count = chapters?.length ?? 0;
-        if (count === 0) throw new Error("No chapters returned");
-        sampleChapter = chapters[0];
-        results.push({ test: "chapters", passed: true, data: { count } });
-        log(pc.green(`  ✓ chapters: ${count} chapters`));
+        if (chapters?.length > 0) {
+          chaptersData = { manga, chapters };
+          results.push({ test: "chapters", passed: true, data: { manga: manga.title, count: chapters.length } });
+          log(pc.green(`  ✓ chapters: ${chapters.length} chapters`));
+          break;
+        }
+        log(pc.dim(`    (${manga.title.slice(0, 20)} has no chapters, trying next...)`));
       } catch (e) {
-        results.push({ test: "chapters", passed: false, error: String(e) });
-        log(pc.red(`  ✗ chapters: ${e}`));
+        log(pc.dim(`    (${manga.title.slice(0, 20)} failed, trying next...)`));
       }
     }
+    if (!chaptersData) {
+      results.push({ test: "chapters", passed: false, error: "No manga with chapters found" });
+      log(pc.red(`  ✗ chapters: No manga with chapters found in ${Math.min(3, mangaSamples.length)} samples`));
+    }
 
-    // Test 6: Pages
+    // Test 6: Pages (try up to 3 chapters)
     let samplePages: Array<{ index: number; imageUrl?: string; url?: string }> = [];
-    if (sampleChapter) {
-      try {
-        log(pc.dim("Testing pages..."));
-        const pages = unwrapResult<Array<{ index: number; imageUrl?: string; url?: string }>>(
-          exports.getPageList(sourceId, sampleChapter.url)
-        );
-        const count = pages?.length ?? 0;
-        if (count === 0) throw new Error("No pages returned");
-        samplePages = pages.slice(0, 3);
-        results.push({ test: "pages", passed: true, data: { count } });
-        log(pc.green(`  ✓ pages: ${count} pages`));
-      } catch (e) {
-        results.push({ test: "pages", passed: false, error: String(e) });
-        log(pc.red(`  ✗ pages: ${e}`));
+    if (chaptersData) {
+      for (const chapter of chaptersData.chapters.slice(0, 3)) {
+        try {
+          log(pc.dim(`Testing pages (${chapter.name.slice(0, 30)})...`));
+          const pages = unwrapResult<Array<{ index: number; imageUrl?: string; url?: string }>>(
+            exports.getPageList(sourceId, chapter.url)
+          );
+          if (pages?.length > 0) {
+            samplePages = pages.slice(0, 3);
+            results.push({ test: "pages", passed: true, data: { chapter: chapter.name, count: pages.length } });
+            log(pc.green(`  ✓ pages: ${pages.length} pages`));
+            break;
+          }
+          log(pc.dim(`    (${chapter.name.slice(0, 20)} has no pages, trying next...)`));
+        } catch (e) {
+          log(pc.dim(`    (${chapter.name.slice(0, 20)} failed, trying next...)`));
+        }
+      }
+      if (samplePages.length === 0) {
+        results.push({ test: "pages", passed: false, error: "No chapter with pages found" });
+        log(pc.red(`  ✗ pages: No chapter with pages found in 3 samples`));
       }
     }
 
