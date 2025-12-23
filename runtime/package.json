@@ -1,5 +1,5 @@
 {
-  "name": "@tachiyomi-js/runtime",
+  "name": "@nemu.pm/tachiyomi-runtime",
   "version": "0.1.0",
   "description": "Runtime for loading and executing Tachiyomi extensions compiled to JavaScript",
   "repository": {
