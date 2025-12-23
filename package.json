@@ -1,0 +1,23 @@
+{
+  "name": "tachiyomi-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Build Tachiyomi extensions for JavaScript environments",
+  "scripts": {
+    "build:shim": "cd shim && ./gradlew compileKotlinJs --build-cache --parallel",
+    "build:extension": "cd compiler && ./gradlew devBuild --build-cache --parallel --configuration-cache",
+    "build:all": "cd compiler && ./gradlew buildAllExtensions --build-cache --parallel",
+    "scan": "bun scripts/scan-extensions.ts",
+    "test": "bun scripts/test-extension.ts",
+    "test:interactive": "bun scripts/test-tachiyomi-source.ts",
+    "report": "bun scripts/generate-build-report.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "picocolors": "^1.1.1"
+  }
+}

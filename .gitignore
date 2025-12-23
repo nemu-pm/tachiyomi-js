@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build outputs
+build/
+dist/
+*.local
+
+# Gradle
+.gradle/
+.kotlin/
+
+# Generated files
+packages/compiler/extensions-manifest.json
+packages/compiler/buildSrc/build/
+packages/shim/build/
+
+# Dev extensions (built locally)
+dev/tachiyomi-extensions/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+
+# Logs
+*.log
+
