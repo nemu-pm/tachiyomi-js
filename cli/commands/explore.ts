@@ -167,7 +167,7 @@ async function showMangaDetails(
   console.log(pc.dim("\nFetching details..."));
 
   const details = unwrapResult<Manga>(
-    exports.getMangaDetails(sourceId, JSON.stringify({ url: manga.url }))
+    exports.getMangaDetails(sourceId, manga.url)
   );
 
   console.log("\n" + pc.bold(pc.cyan(details.title || manga.title)));
@@ -219,7 +219,7 @@ async function showChapters(
   console.log(pc.dim("\nFetching chapters..."));
 
   const chapters = unwrapResult<Chapter[]>(
-    exports.getChapterList(sourceId, JSON.stringify({ url: manga.url }))
+    exports.getChapterList(sourceId, manga.url)
   );
 
   if (!chapters?.length) {
@@ -266,7 +266,7 @@ async function showPages(
   console.log(pc.dim("\nFetching pages..."));
 
   const pages = unwrapResult<Page[]>(
-    exports.getPageList(sourceId, JSON.stringify({ url: chapter.url }))
+    exports.getPageList(sourceId, chapter.url)
   );
 
   if (!pages?.length) {

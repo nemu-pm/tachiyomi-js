@@ -181,7 +181,7 @@ export const details = buildCommand({
     const { exports, sourceId } = getExtensionAndSource(extensionId);
 
     console.log(`Fetching manga details...`);
-    const result = unwrapResult<unknown>(exports.getMangaDetails(sourceId, JSON.stringify({ url })));
+    const result = unwrapResult<unknown>(exports.getMangaDetails(sourceId, url));
 
     if (flags.json) {
       printJson(result);
@@ -218,7 +218,7 @@ export const chapters = buildCommand({
 
     console.log(`Fetching chapter list...`);
     const result = unwrapResult<Array<{ name: string; url: string }>>(
-      exports.getChapterList(sourceId, JSON.stringify({ url }))
+      exports.getChapterList(sourceId, url)
     );
 
     if (flags.json) {
@@ -262,7 +262,7 @@ export const pages = buildCommand({
 
     console.log(`Fetching page list...`);
     const result = unwrapResult<Array<{ index: number; imageUrl?: string; url?: string }>>(
-      exports.getPageList(sourceId, JSON.stringify({ url }))
+      exports.getPageList(sourceId, url)
     );
 
     if (flags.json) {

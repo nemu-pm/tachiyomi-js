@@ -10,7 +10,7 @@ export function syncHttpRequest(
   body: string | null,
   wantBytes: boolean
 ): { status: number; body: string; headers: Record<string, string>; error: string | null } {
-  const args = ["-s", "-X", method, "-w", "\n%{http_code}", "-D", "-"];
+  const args = ["-s", "-S", "-X", method, "-w", "\n%{http_code}", "-D", "-", "-L"];
 
   for (const [key, value] of Object.entries(headers)) {
     args.push("-H", `${key}: ${value}`);
@@ -23,6 +23,17 @@ export function syncHttpRequest(
   args.push(url);
 
   const result = Bun.spawnSync(["curl", ...args]);
+  
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString().trim();
+    return {
+      status: 0,
+      body: "",
+      headers: {},
+      error: stderr || `curl failed with exit code ${result.exitCode}`,
+    };
+  }
+  
   const stdout = result.stdout;
 
   // Parse headers (until empty line)
@@ -66,11 +77,17 @@ export function syncHttpRequest(
     finalBody = responseBody;
   }
 
+  // Check for HTTP errors
+  let error: string | null = null;
+  if (statusCode >= 400) {
+    error = `HTTP ${statusCode}`;
+  }
+
   return {
     status: statusCode,
     body: finalBody,
     headers: responseHeaders,
-    error: result.exitCode !== 0 ? result.stderr.toString() : null,
+    error,
   };
 }
 
@@ -83,6 +100,9 @@ export function installHttpBridge(): void {
     body: string | null,
     wantBytes: boolean
   ): { status: number; statusText: string; headersJson: string; body: string; error: string | null } => {
+    if (process.env.DEBUG_HTTP) {
+      console.log(`[HTTP] ${method} ${url}`);
+    }
     const headers = JSON.parse(headersJson || "{}");
     const result = syncHttpRequest(url, method, headers, body, wantBytes);
 

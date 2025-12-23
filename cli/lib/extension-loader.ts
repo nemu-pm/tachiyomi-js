@@ -7,9 +7,9 @@ export interface TachiyomiExports {
   getPopularManga(sourceId: string, page: number): string;
   getLatestUpdates(sourceId: string, page: number): string;
   searchManga(sourceId: string, page: number, query: string): string;
-  getMangaDetails(sourceId: string, mangaJson: string): string;
-  getChapterList(sourceId: string, mangaJson: string): string;
-  getPageList(sourceId: string, chapterJson: string): string;
+  getMangaDetails(sourceId: string, mangaUrl: string): string;
+  getChapterList(sourceId: string, mangaUrl: string): string;
+  getPageList(sourceId: string, chapterUrl: string): string;
   getFilterList(sourceId: string): string;
 }
 
