@@ -341,30 +341,32 @@ async function showSinglePage(
   page: Page
 ) {
   const pageNum = String(page.index + 1).padStart(3, "0");
-  const imageUrl = page.imageUrl || page.url || "";
+  const imageUrl = page.imageUrl || "";
 
   console.log(pc.cyan(`\nPage ${pageNum}`));
-  console.log(pc.dim(`URL: ${page.url || "(none)"}`));
-  console.log(pc.dim(`Image: ${imageUrl}`));
+  console.log(pc.dim(`Image: ${imageUrl || "(no direct URL)"}`));
 
-  while (true) {
-    const action = await select({
-      message: "Options:",
-      choices: [
-        { name: "📥 Download this page", value: "download" },
-        { name: "📋 Copy URL", value: "copy" },
-        { name: "⬅ Back", value: "back" },
-      ],
-    });
+  const action = await select({
+    message: "Options:",
+    choices: [
+      { name: "📥 Download this page", value: "download" },
+      { name: "📋 Copy image URL", value: "copy" },
+      { name: "⬅ Back", value: "back" },
+    ],
+  });
 
-    if (action === "back") break;
+  if (action === "back") return;
 
-    if (action === "copy") {
+  if (action === "copy") {
+    if (imageUrl) {
       console.log(pc.green(`\n${imageUrl}`));
-    } else if (action === "download") {
-      await downloadSinglePage(exports, sourceId, manga, chapter, page);
+    } else {
+      console.log(pc.yellow("\nNo direct image URL available"));
     }
+  } else if (action === "download") {
+    await downloadSinglePage(exports, sourceId, manga, chapter, page);
   }
+  // Returns to page list after action
 }
 
 async function downloadSinglePage(
