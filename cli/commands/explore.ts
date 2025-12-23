@@ -1,6 +1,8 @@
 import { buildCommand } from "@stricli/core";
-import { select, input } from "@inquirer/prompts";
+import { select, input, confirm } from "@inquirer/prompts";
 import pc from "picocolors";
+import * as fs from "fs";
+import * as path from "path";
 import { loadOutputConfig } from "../config";
 import { listExtensionsWithInfo, loadExtension, unwrapResult, type MangasPage, type TachiyomiExports } from "../lib/extension-loader";
 
@@ -254,13 +256,14 @@ async function showChapters(
     }
 
     const chapter = chapters[parseInt(chapterChoice)];
-    await showPages(exports, sourceId, chapter);
+    await showPages(exports, sourceId, manga, chapter);
   }
 }
 
 async function showPages(
   exports: TachiyomiExports,
   sourceId: string,
+  manga: Manga,
   chapter: Chapter
 ) {
   console.log(pc.dim("\nFetching pages..."));
@@ -283,16 +286,98 @@ async function showPages(
     console.log(pc.dim(`... and ${pages.length - 5} more pages`));
   }
 
-  await select({
-    message: "Options:",
-    choices: [
-      { name: "📋 Show all URLs (JSON)", value: "json" },
-      { name: "⬅ Back", value: "back" },
-    ],
-  }).then((action) => {
+  while (true) {
+    const action = await select({
+      message: "Options:",
+      choices: [
+        { name: "📥 Download chapter", value: "download" },
+        { name: "📋 Show all URLs (JSON)", value: "json" },
+        { name: "⬅ Back", value: "back" },
+      ],
+    });
+
+    if (action === "back") break;
+
     if (action === "json") {
       console.log("\n" + JSON.stringify(pages, null, 2));
+    } else if (action === "download") {
+      await downloadChapter(exports, sourceId, manga, chapter, pages);
     }
+  }
+}
+
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[<>:"/\\|?*]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
+async function downloadChapter(
+  exports: TachiyomiExports,
+  sourceId: string,
+  manga: Manga,
+  chapter: Chapter,
+  pages: Page[]
+) {
+  const mangaFolder = sanitizeFilename(manga.title);
+  const chapterFolder = sanitizeFilename(chapter.name);
+  const defaultDir = path.join("downloads", mangaFolder, chapterFolder);
+
+  const outputDir = await input({
+    message: "Download directory:",
+    default: defaultDir,
   });
+
+  // Create directory
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  console.log(pc.cyan(`\nDownloading ${pages.length} pages to ${outputDir}...\n`));
+
+  let downloaded = 0;
+  let failed = 0;
+
+  for (const page of pages) {
+    const pageNum = String(page.index + 1).padStart(3, "0");
+    const imageUrl = page.imageUrl || page.url || "";
+
+    if (!imageUrl) {
+      console.log(pc.red(`Page ${pageNum}: No image URL`));
+      failed++;
+      continue;
+    }
+
+    try {
+      process.stdout.write(pc.dim(`Page ${pageNum}...`));
+
+      // Fetch image through extension (handles headers, interceptors)
+      const base64 = unwrapResult<string>(
+        exports.fetchImage(sourceId, page.url || "", imageUrl)
+      );
+
+      // Detect format from URL or default to jpg
+      const ext = imageUrl.match(/\.(jpe?g|png|gif|webp)/i)?.[1]?.toLowerCase() || "jpg";
+      const filename = `${pageNum}.${ext}`;
+      const filepath = path.join(outputDir, filename);
+
+      // Decode base64 and save
+      const buffer = Buffer.from(base64, "base64");
+      fs.writeFileSync(filepath, buffer);
+
+      process.stdout.write(pc.green(` ✓ ${filename} (${(buffer.length / 1024).toFixed(1)}KB)\n`));
+      downloaded++;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stdout.write(pc.red(` ✗ ${msg.slice(0, 50)}\n`));
+      failed++;
+    }
+  }
+
+  console.log(pc.green(`\n✓ Downloaded ${downloaded}/${pages.length} pages`));
+  if (failed > 0) {
+    console.log(pc.yellow(`⚠ ${failed} pages failed`));
+  }
+  console.log(pc.dim(`Saved to: ${path.resolve(outputDir)}`));
 }
 

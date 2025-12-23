@@ -11,6 +11,8 @@ export interface TachiyomiExports {
   getChapterList(sourceId: string, mangaUrl: string): string;
   getPageList(sourceId: string, chapterUrl: string): string;
   getFilterList(sourceId: string): string;
+  fetchImage(sourceId: string, pageUrl: string, pageImageUrl: string): string;
+  getHeaders(sourceId: string): string;
 }
 
 export interface SourceInfo {
