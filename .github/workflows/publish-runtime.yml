@@ -1,0 +1,52 @@
+name: Publish Runtime to npm
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Only run if release tag starts with 'runtime-v'
+    if: startsWith(github.event.release.tag_name, 'runtime-v')
+    
+    permissions:
+      contents: read
+      id-token: write  # For npm provenance
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Install dependencies
+        working-directory: runtime
+        run: npm ci
+      
+      - name: Build
+        working-directory: runtime
+        run: npm run build
+      
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#runtime-v}" >> $GITHUB_OUTPUT
+      
+      - name: Verify version matches package.json
+        working-directory: runtime
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
+            echo "❌ Tag version (${{ steps.version.outputs.VERSION }}) doesn't match package.json ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version matches: $PKG_VERSION"
+      
+      - name: Publish to npm
+        working-directory: runtime
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
