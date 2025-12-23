@@ -2,6 +2,12 @@
   "name": "@tachiyomi-js/runtime",
   "version": "0.1.0",
   "description": "Runtime for loading and executing Tachiyomi extensions compiled to JavaScript",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nemu-pm/tachiyomi-js.git",
+    "directory": "runtime"
+  },
+  "homepage": "https://github.com/nemu-pm/tachiyomi-js#readme",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

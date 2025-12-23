@@ -3,21 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "description": "Build Tachiyomi extensions for JavaScript environments",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nemu-pm/tachiyomi-js.git"
+  },
+  "homepage": "https://github.com/nemu-pm/tachiyomi-js#readme",
+  "bin": {
+    "tachiyomi": "./cli/bin.ts"
+  },
   "scripts": {
     "build:shim": "cd shim && ./gradlew compileKotlinJs --build-cache --parallel",
-    "build:extension": "cd compiler && ./gradlew devBuild --build-cache --parallel --configuration-cache",
-    "build:all": "cd compiler && ./gradlew buildAllExtensions --build-cache --parallel",
-    "scan": "bun scripts/scan-extensions.ts",
-    "test": "bun scripts/test-extension.ts",
-    "test:interactive": "bun scripts/test-tachiyomi-source.ts",
-    "report": "bun scripts/generate-build-report.ts"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "commander": "^14.0.2",
+    "@stricli/core": "^1.2.4",
     "picocolors": "^1.1.1"
   }
 }

@@ -57,10 +57,7 @@ abstract class DevBuildTask @Inject constructor(
 ) : DefaultTask() {
     
     @get:Input
-    abstract val extensionLang: Property<String>
-    
-    @get:Input
-    abstract val extensionName: Property<String>
+    abstract val extensionPath: Property<String>
     
     @get:Input
     abstract val extName: Property<String>
@@ -83,8 +80,9 @@ abstract class DevBuildTask @Inject constructor(
     
     @TaskAction
     fun build() {
-        val lang = extensionLang.get()
-        val name = extensionName.get()
+        val extPath = extensionPath.get()
+        val lang = extPath.substringBefore("/")
+        val name = extPath.substringAfter("/")
         val outDir = outputDir.get().asFile
         val ppDir = preprocessedDir.get().asFile
         
@@ -147,11 +145,11 @@ abstract class DevBuildTask @Inject constructor(
         manifestFile.writeText(manifestContent)
         
         val sourceCount = sourcesJson.count { it == '{' }
-        println("\n✓ Built to: dev/tachiyomi-extensions/$lang-$name/")
+        println("\n✓ Built to: $extPath/")
         println("  - extension.js")
         println("  - manifest.json ($sourceCount sources)")
         if (hasIcon) println("  - icon.png")
-        println("\n  Test: bun scripts/test-tachiyomi-source.ts $lang-$name\n")
+        println("\n  Test: tachiyomi test popular $extPath\n")
     }
 }
 
@@ -190,10 +188,7 @@ object CodeTransformations {
 abstract class PreprocessSourceTask : DefaultTask() {
     
     @get:Input
-    abstract val extensionLang: Property<String>
-    
-    @get:Input
-    abstract val extensionName: Property<String>
+    abstract val extensionPath: Property<String>
     
     @get:Input
     @get:Optional
@@ -203,7 +198,7 @@ abstract class PreprocessSourceTask : DefaultTask() {
     abstract val libDeps: ListProperty<String>
     
     @get:InputDirectory
-    abstract val extensionSourcePath: DirectoryProperty
+    abstract val extensionSourceDir: DirectoryProperty
     
     @get:InputDirectory
     @get:Optional
@@ -287,7 +282,7 @@ abstract class PreprocessSourceTask : DefaultTask() {
         // Note: keiyoushi/utils comes from our shim (JS-compatible implementations)
         libPaths.get().map { File(it) }.forEach { processSourceDir(it) }
         multisrc?.let { processSourceDir(it) }
-        processSourceDir(extensionSourcePath.get().asFile)
+        processSourceDir(extensionSourceDir.get().asFile)
     }
 }
 
@@ -298,10 +293,7 @@ abstract class PreprocessSourceTask : DefaultTask() {
 abstract class GenerateMainTask : DefaultTask() {
     
     @get:Input
-    abstract val extensionLang: Property<String>
-    
-    @get:Input
-    abstract val extensionName: Property<String>
+    abstract val extensionPath: Property<String>
     
     @get:Input
     abstract val extClassName: Property<String>
@@ -318,9 +310,12 @@ abstract class GenerateMainTask : DefaultTask() {
         outDir.deleteRecursively()
         outDir.mkdirs()
         
+        val extPath = extensionPath.get()
+        val packageName = "eu.kanade.tachiyomi.extension.${extPath.replace("/", ".")}"
+        
         val outputFile = File(outDir, "Main.kt")
         val template = mainKtTemplate.get()
-            .replace("{{PACKAGE_NAME}}", "eu.kanade.tachiyomi.extension.${extensionLang.get()}.${extensionName.get()}")
+            .replace("{{PACKAGE_NAME}}", packageName)
             .replace("{{EXT_CLASS_NAME}}", extClassName.get())
         
         outputFile.writeText(template)

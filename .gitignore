@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 bun.lockb
+bun.lock
+
+# Environment (local config)
+.env
+.env.*
+tachiyomi.config.json
+.tachiyomirc.json
 
 # Build outputs
 build/
@@ -12,12 +19,9 @@ dist/
 .kotlin/
 
 # Generated files
-packages/compiler/extensions-manifest.json
-packages/compiler/buildSrc/build/
-packages/shim/build/
-
-# Dev extensions (built locally)
-dev/tachiyomi-extensions/
+compiler/extensions-manifest.json
+compiler/buildSrc/build/
+shim/build/
 
 # IDE
 .idea/
