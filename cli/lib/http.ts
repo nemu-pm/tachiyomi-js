@@ -62,19 +62,23 @@ export function syncHttpRequest(
     }
   }
 
-  // Get status code from last line
-  const bodyStr = bodySection.toString();
-  const lastNewline = bodyStr.lastIndexOf("\n");
-  const statusCode = parseInt(bodyStr.slice(lastNewline + 1)) || 200;
-  const responseBody = bodyStr.slice(0, lastNewline);
+  // Find status code from last line (curl -w appends it)
+  // Search backwards for the last newline in the buffer
+  let lastNewlineIdx = bodySection.length - 1;
+  while (lastNewlineIdx >= 0 && bodySection[lastNewlineIdx] !== 10) {
+    lastNewlineIdx--;
+  }
+  
+  const statusCodeStr = bodySection.slice(lastNewlineIdx + 1).toString();
+  const statusCode = parseInt(statusCodeStr) || 200;
+  const bodyBytes = bodySection.slice(0, lastNewlineIdx);
 
-  // If wantBytes, convert to base64
+  // If wantBytes, keep as binary and base64 encode
   let finalBody: string;
   if (wantBytes) {
-    const bodyBytes = Buffer.from(responseBody, "binary");
     finalBody = bodyBytes.toString("base64");
   } else {
-    finalBody = responseBody;
+    finalBody = bodyBytes.toString("utf-8");
   }
 
   // Check for HTTP errors
