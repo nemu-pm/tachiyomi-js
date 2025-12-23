@@ -4,15 +4,14 @@ on:
   release:
     types: [published]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Only run if release tag starts with 'runtime-v'
     if: startsWith(github.event.release.tag_name, 'runtime-v')
-    
-    permissions:
-      contents: read
-      id-token: write  # Required for OIDC / Trusted Publishing
     
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +38,6 @@ jobs:
           echo "Publishing version: $VERSION"
           npm pkg set version="$VERSION"
       
-      # Trusted Publishing: no NPM_TOKEN needed!
-      - name: Publish to npm (Trusted Publishing)
+      - name: Publish to npm
         working-directory: runtime
-        run: npm publish --access public --provenance
+        run: npm publish --access public
