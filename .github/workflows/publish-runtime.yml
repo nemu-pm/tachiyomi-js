@@ -17,6 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - uses: oven-sh/setup-bun@v2
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -24,11 +26,11 @@ jobs:
       
       - name: Install dependencies
         working-directory: runtime
-        run: npm ci
+        run: bun install
       
       - name: Build
         working-directory: runtime
-        run: npm run build
+        run: bun run build
       
       - name: Extract version from tag
         id: version
@@ -45,7 +47,6 @@ jobs:
           echo "✅ Version matches: $PKG_VERSION"
       
       # Trusted Publishing: no NPM_TOKEN needed!
-      # Configure at: https://www.npmjs.com/package/@tachiyomi-js/runtime/access
       - name: Publish to npm (Trusted Publishing)
         working-directory: runtime
         run: npm publish --access public --provenance
