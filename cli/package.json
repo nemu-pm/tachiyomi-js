@@ -1,0 +1,40 @@
+{
+  "name": "@nemu.pm/tachiyomi-cli",
+  "version": "0.0.0-dev",
+  "description": "CLI for testing and exploring Tachiyomi extensions (requires bun)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nemu-pm/tachiyomi-js.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/nemu-pm/tachiyomi-js#readme",
+  "type": "module",
+  "bin": {
+    "tachiyomi": "./bin.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.1.0",
+    "@stricli/core": "^1.2.4",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.19.3",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "tachiyomi",
+    "manga",
+    "extension",
+    "cli",
+    "bun"
+  ],
+  "license": "MIT"
+}
+

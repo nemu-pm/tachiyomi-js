@@ -8,20 +8,12 @@
     "url": "https://github.com/nemu-pm/tachiyomi-js.git"
   },
   "homepage": "https://github.com/nemu-pm/tachiyomi-js#readme",
-  "bin": {
-    "tachiyomi": "./cli/bin.ts"
-  },
   "scripts": {
     "build:shim": "cd shim && ./gradlew compileKotlinJs --build-cache --parallel",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "cd cli && bun run typecheck && cd ../runtime && bun run typecheck"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@inquirer/prompts": "^8.1.0",
-    "@stricli/core": "^1.2.4",
-    "picocolors": "^1.1.1"
   }
 }

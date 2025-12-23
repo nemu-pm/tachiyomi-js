@@ -7,12 +7,10 @@
     "skipLibCheck": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["bun-types"]
+    "types": ["bun-types", "node"]
   },
-  "include": ["cli/**/*.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules"]
 }
 

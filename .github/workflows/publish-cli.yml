@@ -1,0 +1,44 @@
+name: Publish CLI to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # Required for OIDC / Trusted Publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Only run if release tag starts with 'cli-v'
+    if: startsWith(github.event.release.tag_name, 'cli-v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: bun install
+
+      - name: Typecheck CLI
+        working-directory: cli
+        run: bun run typecheck
+
+      - name: Inject version from tag
+        working-directory: cli
+        run: |
+          VERSION="${GITHUB_REF_NAME#cli-v}"
+          npm pkg set version="$VERSION"
+
+      - name: Publish to npm
+        working-directory: cli
+        run: npm publish --provenance --access public
+
