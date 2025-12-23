@@ -277,32 +277,138 @@ async function showPages(
     return;
   }
 
-  console.log(pc.green(`\n${chapter.name} - ${pages.length} pages\n`));
-
-  for (const page of pages.slice(0, 5)) {
-    console.log(pc.dim(`Page ${page.index + 1}: ${page.imageUrl || page.url}`));
-  }
-  if (pages.length > 5) {
-    console.log(pc.dim(`... and ${pages.length - 5} more pages`));
-  }
+  console.log(pc.green(`\n${chapter.name} - ${pages.length} pages`));
 
   while (true) {
+    const choices = [
+      { name: "📥 Download all pages", value: "download-all" },
+      { name: "🖼️  Browse pages...", value: "browse" },
+      { name: "📋 Show all URLs (JSON)", value: "json" },
+      { name: "⬅ Back", value: "back" },
+    ];
+
     const action = await select({
-      message: "Options:",
-      choices: [
-        { name: "📥 Download chapter", value: "download" },
-        { name: "📋 Show all URLs (JSON)", value: "json" },
-        { name: "⬅ Back", value: "back" },
-      ],
+      message: `${pages.length} pages:`,
+      choices,
     });
 
     if (action === "back") break;
 
     if (action === "json") {
       console.log("\n" + JSON.stringify(pages, null, 2));
-    } else if (action === "download") {
+    } else if (action === "download-all") {
       await downloadChapter(exports, sourceId, manga, chapter, pages);
+    } else if (action === "browse") {
+      await browsePagesMenu(exports, sourceId, manga, chapter, pages);
     }
+  }
+}
+
+async function browsePagesMenu(
+  exports: TachiyomiExports,
+  sourceId: string,
+  manga: Manga,
+  chapter: Chapter,
+  pages: Page[]
+) {
+  while (true) {
+    const choices = [
+      ...pages.map((p) => ({
+        name: `Page ${String(p.index + 1).padStart(3, "0")}: ${(p.imageUrl || p.url || "").slice(0, 60)}...`,
+        value: String(p.index),
+      })),
+      { name: "⬅ Back", value: "back" },
+    ];
+
+    const pageChoice = await select({
+      message: "Select a page:",
+      choices,
+      pageSize: 20,
+    });
+
+    if (pageChoice === "back") break;
+
+    const page = pages[parseInt(pageChoice)];
+    await showSinglePage(exports, sourceId, manga, chapter, page);
+  }
+}
+
+async function showSinglePage(
+  exports: TachiyomiExports,
+  sourceId: string,
+  manga: Manga,
+  chapter: Chapter,
+  page: Page
+) {
+  const pageNum = String(page.index + 1).padStart(3, "0");
+  const imageUrl = page.imageUrl || page.url || "";
+
+  console.log(pc.cyan(`\nPage ${pageNum}`));
+  console.log(pc.dim(`URL: ${page.url || "(none)"}`));
+  console.log(pc.dim(`Image: ${imageUrl}`));
+
+  while (true) {
+    const action = await select({
+      message: "Options:",
+      choices: [
+        { name: "📥 Download this page", value: "download" },
+        { name: "📋 Copy URL", value: "copy" },
+        { name: "⬅ Back", value: "back" },
+      ],
+    });
+
+    if (action === "back") break;
+
+    if (action === "copy") {
+      console.log(pc.green(`\n${imageUrl}`));
+    } else if (action === "download") {
+      await downloadSinglePage(exports, sourceId, manga, chapter, page);
+    }
+  }
+}
+
+async function downloadSinglePage(
+  exports: TachiyomiExports,
+  sourceId: string,
+  manga: Manga,
+  chapter: Chapter,
+  page: Page
+) {
+  const pageNum = String(page.index + 1).padStart(3, "0");
+  const imageUrl = page.imageUrl || page.url || "";
+
+  if (!imageUrl) {
+    console.log(pc.red("No image URL available"));
+    return;
+  }
+
+  const mangaFolder = sanitizeFilename(manga.title);
+  const chapterFolder = sanitizeFilename(chapter.name);
+  const ext = imageUrl.match(/\.(jpe?g|png|gif|webp)/i)?.[1]?.toLowerCase() || "jpg";
+  const defaultPath = path.join("downloads", mangaFolder, chapterFolder, `${pageNum}.${ext}`);
+
+  const outputPath = await input({
+    message: "Save as:",
+    default: defaultPath,
+  });
+
+  // Create directory
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+  console.log(pc.dim("\nDownloading..."));
+
+  try {
+    const base64 = unwrapResult<string>(
+      exports.fetchImage(sourceId, page.url || "", imageUrl)
+    );
+
+    const buffer = Buffer.from(base64, "base64");
+    fs.writeFileSync(outputPath, buffer);
+
+    console.log(pc.green(`✓ Saved ${outputPath} (${(buffer.length / 1024).toFixed(1)}KB)`));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(pc.red(`✗ Failed: ${msg}`));
   }
 }
 

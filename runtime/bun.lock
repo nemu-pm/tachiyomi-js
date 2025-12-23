@@ -5,11 +5,20 @@
     "": {
       "name": "@tachiyomi-js/runtime",
       "dependencies": {
-        "canvas": "^3.0.0-rc3",
+        "comlink": "^4.4.2",
       },
       "devDependencies": {
         "typescript": "^5.0.0",
       },
+      "optionalDependencies": {
+        "canvas": "^3.0.0-rc3",
+      },
+      "peerDependencies": {
+        "canvas": "^3.0.0-rc3",
+      },
+      "optionalPeers": [
+        "canvas",
+      ],
     },
   },
   "packages": {
@@ -22,6 +31,8 @@
     "canvas": ["canvas@3.0.0-rc3", "", { "dependencies": { "node-addon-api": "^7.0.0", "prebuild-install": "^7.1.1", "simple-get": "^3.0.3" } }, "sha512-LJVkMp4AH7/IRoLvhLS6R09uBt9O3O0mhCYL34AQV/+OC39jmTv22pJTF5Mgfa3V2JnzGl21MVrhEKmtmPtfQA=="],
 
     "chownr": ["chownr@1.1.4", "", {}, "sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg=="],
+
+    "comlink": ["comlink@4.4.2", "", {}, "sha512-OxGdvBmJuNKSCMO4NTl1L47VRp6xn2wG4F/2hYzB6tiCb709otOxtEYCSvK80PtjODfXXZu8ds+Nw5kVCjqd2g=="],
 
     "decompress-response": ["decompress-response@4.2.1", "", { "dependencies": { "mimic-response": "^2.0.0" } }, "sha512-jOSne2qbyE+/r8G1VU+G/82LBs2Fs4LAsTiLSHOCOMZQl2OKZ6i8i4IyHemTe+/yIXOtTcRQMzPcgyhoFlqPkw=="],
 

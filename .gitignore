@@ -35,6 +35,7 @@ Thumbs.db
 
 # Cache
 .cache/
+downloads/
 
 # Logs
 *.log

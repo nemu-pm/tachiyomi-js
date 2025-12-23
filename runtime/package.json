@@ -30,6 +30,28 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
+    },
+    "./async": {
+      "browser": {
+        "types": "./dist/async/index.d.ts",
+        "default": "./dist/async/index.js"
+      },
+      "bun": {
+        "types": "./dist/async/index.node.d.ts",
+        "default": "./dist/async/index.node.js"
+      },
+      "node": {
+        "types": "./dist/async/index.node.d.ts",
+        "default": "./dist/async/index.node.js"
+      },
+      "default": {
+        "types": "./dist/async/index.d.ts",
+        "default": "./dist/async/index.js"
+      }
+    },
+    "./worker": {
+      "types": "./dist/async/worker.d.ts",
+      "default": "./dist/async/worker.js"
     }
   },
   "files": [
@@ -48,6 +70,9 @@
     "runtime"
   ],
   "license": "MIT",
+  "dependencies": {
+    "comlink": "^4.4.2"
+  },
   "devDependencies": {
     "typescript": "^5.0.0"
   },
