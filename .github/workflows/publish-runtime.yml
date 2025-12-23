@@ -12,7 +12,7 @@ jobs:
     
     permissions:
       contents: read
-      id-token: write  # For npm provenance
+      id-token: write  # Required for OIDC / Trusted Publishing
     
     steps:
       - uses: actions/checkout@v4
@@ -44,9 +44,8 @@ jobs:
           fi
           echo "✅ Version matches: $PKG_VERSION"
       
-      - name: Publish to npm
+      # Trusted Publishing: no NPM_TOKEN needed!
+      # Configure at: https://www.npmjs.com/package/@tachiyomi-js/runtime/access
+      - name: Publish to npm (Trusted Publishing)
         working-directory: runtime
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
