@@ -1,5 +1,5 @@
 /**
- * @tachiyomi-js/runtime
+ * @nemu.pm/tachiyomi-runtime
  * 
  * Runtime for loading and executing Tachiyomi extensions compiled to JavaScript.
  * 
