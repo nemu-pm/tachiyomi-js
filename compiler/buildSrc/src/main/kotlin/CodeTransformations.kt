@@ -24,6 +24,9 @@ object CodeTransformations {
         // an optional expectation, usable only in common sources); the runtime is single-threaded anyway.
         Regex("""@Volatile\b\s*""") to "",
         Regex("""@Synchronized\b\s*""") to "",
+        // JvmStatic and JvmInline are optional expectations too; JS value classes need no annotation.
+        Regex("""@JvmStatic\b\s*""") to "",
+        Regex("""@JvmInline\b\s*""") to "",
 
         // Fix JS name clashes: property and function have same name
         Regex("""fun useLoadMoreRequest\(\)""") to "fun shouldUseLoadMore()",
