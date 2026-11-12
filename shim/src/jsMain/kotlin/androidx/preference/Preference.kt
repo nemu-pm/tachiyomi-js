@@ -60,6 +60,12 @@ open class Preference(val context: Context) {
     var dialogMessage: CharSequence? = null
     var summaryProvider: SummaryProvider<*>? = null
 
+    // Java-style setters the JVM derives from the properties above; Kotlin/JS does not.
+    fun setEnabled(enabled: Boolean) { isEnabled = enabled }
+    fun setVisible(visible: Boolean) { isVisible = visible }
+    fun setPersistent(persistent: Boolean) { isPersistent = persistent }
+    fun setSelectable(selectable: Boolean) { isSelectable = selectable }
+
     /** The default value given to [setDefaultValue], exported to the schema as-is. */
     protected var defaultValue: Any? = null
         private set
