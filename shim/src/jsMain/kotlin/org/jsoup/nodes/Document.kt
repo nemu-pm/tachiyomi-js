@@ -36,6 +36,11 @@ class Document(implDoc: KsoupDocument) : Element(implDoc) {
     fun setBaseUri(baseUri: String) {
         doc.setBaseUri(baseUri)
     }
+
+    /**
+     * Create a detached element that resolves relative URLs against this document's base URI.
+     */
+    fun createElement(tagName: String): Element = Element(doc.createElement(tagName))
 }
 
 /**
