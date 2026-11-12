@@ -84,6 +84,8 @@ interface BufferedSource : Source {
     fun skip(byteCount: Long)
     fun indexOf(b: Byte): Long
     fun indexOf(b: Byte, fromIndex: Long): Long
+    fun rangeEquals(offset: Long, bytes: ByteString): Boolean
+    fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean
     fun peek(): BufferedSource
     fun inputStream(): InputStream
 }
@@ -244,6 +246,9 @@ private class RealBufferedSource(private val source: Source) : BufferedSource {
     override fun skip(byteCount: Long) = fill().skip(byteCount)
     override fun indexOf(b: Byte): Long = fill().indexOf(b)
     override fun indexOf(b: Byte, fromIndex: Long): Long = fill().indexOf(b, fromIndex)
+    override fun rangeEquals(offset: Long, bytes: ByteString): Boolean = fill().rangeEquals(offset, bytes)
+    override fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean =
+        fill().rangeEquals(offset, bytes, bytesOffset, byteCount)
     override fun peek(): BufferedSource = fill().peek()
     override fun inputStream(): InputStream = fill().inputStream()
     override fun timeout(): Timeout = source.timeout()

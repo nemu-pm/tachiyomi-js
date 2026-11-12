@@ -41,6 +41,11 @@ class Buffer : BufferedSource, BufferedSink {
 
     fun snapshot(): ByteString = ByteString(data.copyOfRange(head, tail))
 
+    fun snapshot(byteCount: Int): ByteString {
+        require(byteCount.toLong())
+        return ByteString(data.copyOfRange(head, head + byteCount))
+    }
+
     fun getByte(pos: Long): Byte {
         require(pos in 0 until size) { "pos=$pos size=$size" }
         return data[head + pos.toInt()]
@@ -299,6 +304,17 @@ class Buffer : BufferedSource, BufferedSink {
             if (data[i] == b) return (i - head).toLong()
         }
         return -1L
+    }
+
+    override fun rangeEquals(offset: Long, bytes: ByteString): Boolean = rangeEquals(offset, bytes, 0, bytes.size)
+
+    override fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean {
+        if (offset < 0 || bytesOffset < 0 || byteCount < 0 || offset + byteCount > size || bytesOffset + byteCount > bytes.size) return false
+        val start = head + offset.toInt()
+        for (i in 0 until byteCount) {
+            if (data[start + i] != bytes[bytesOffset + i]) return false
+        }
+        return true
     }
 
     override fun peek(): BufferedSource = copy()

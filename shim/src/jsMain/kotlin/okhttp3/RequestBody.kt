@@ -19,6 +19,8 @@ abstract class RequestBody {
     }
 
     companion object {
+        val EMPTY: RequestBody = ByteArrayRequestBody(ByteArray(0), null)
+
         fun String.toRequestBody(contentType: MediaType? = null): RequestBody = ByteArrayRequestBody(encodeToByteArray(), contentType)
 
         fun ByteArray.toRequestBody(contentType: MediaType? = null, offset: Int = 0, byteCount: Int = size - offset): RequestBody =

@@ -84,7 +84,7 @@ class Headers private constructor(
             for (i in 0 until headers.size) add(headers.name(i), headers.value(i))
         }
 
-        fun set(name: String, value: String): Builder = apply {
+        operator fun set(name: String, value: String): Builder = apply {
             removeAll(name)
             add(name, value)
         }
