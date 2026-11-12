@@ -232,8 +232,8 @@ class LocalDate private constructor(val year: Int, val monthValue: Int, val dayO
             }
         }
 
-        fun parse(text: CharSequence): LocalDate = parse(text, DateTimeFormatter.ISO_LOCAL_DATE)
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDate = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): LocalDate = parse(text, DateTimeFormatter.ISO_LOCAL_DATE)
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): LocalDate = formatter.parse(text!!, ::from)
     }
 }
 
@@ -303,8 +303,8 @@ class YearMonth private constructor(val year: Int, val monthValue: Int) : Compar
         fun now(zone: ZoneId): YearMonth = from(LocalDate.now(zone))
         fun from(temporal: TemporalAccessor): YearMonth =
             YearMonth(temporal.get(ChronoField.YEAR), temporal.get(ChronoField.MONTH_OF_YEAR))
-        fun parse(text: CharSequence): YearMonth = parse(text, DateTimeFormatter.ofPattern("uuuu-MM"))
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): YearMonth = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): YearMonth = parse(text, DateTimeFormatter.ofPattern("uuuu-MM"))
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): YearMonth = formatter.parse(text!!, ::from)
     }
 }
 
@@ -332,7 +332,7 @@ class MonthDay private constructor(val monthValue: Int, val dayOfMonth: Int) : C
         fun now(): MonthDay = from(LocalDate.now())
         fun now(zone: ZoneId): MonthDay = from(LocalDate.now(zone))
         fun from(temporal: TemporalAccessor): MonthDay = MonthDay(temporal.get(ChronoField.MONTH_OF_YEAR), temporal.get(ChronoField.DAY_OF_MONTH))
-        fun parse(text: CharSequence): MonthDay = parse(text, DateTimeFormatter.ofPattern("--MM-dd"))
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): MonthDay = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): MonthDay = parse(text, DateTimeFormatter.ofPattern("--MM-dd"))
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): MonthDay = formatter.parse(text!!, ::from)
     }
 }

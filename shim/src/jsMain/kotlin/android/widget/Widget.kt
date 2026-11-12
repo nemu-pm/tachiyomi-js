@@ -39,9 +39,10 @@ class Toast private constructor(context: Context?) {
         const val LENGTH_SHORT = 0
         const val LENGTH_LONG = 1
         
-        fun makeText(context: Context?, text: CharSequence, duration: Int): Toast {
+        /** `text` is nullable as the Java platform type: sources pass `e.message`. */
+        fun makeText(context: Context?, text: CharSequence?, duration: Int): Toast {
             return Toast(context).apply {
-                setText(text)
+                setText(text ?: "")
                 setDuration(duration)
             }
         }

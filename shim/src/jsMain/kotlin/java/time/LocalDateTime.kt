@@ -149,7 +149,7 @@ class LocalDateTime private constructor(private val date: LocalDate, private val
             else -> LocalDateTime(LocalDate.from(temporal), LocalTime.from(temporal))
         }
 
-        fun parse(text: CharSequence): LocalDateTime = parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDateTime = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): LocalDateTime = parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): LocalDateTime = formatter.parse(text!!, ::from)
     }
 }

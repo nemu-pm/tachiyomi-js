@@ -6,7 +6,8 @@ class URI(private val uriString: String) {
     // Non-null like the JVM platform type: verbatim keiyoushi code assigns it to a String. Empty when absent.
     val host: String
     val port: Int
-    val path: String?
+    // Also non-null: sources hand `URI(href).path` straight to Regex.matchEntire. Empty when absent.
+    val path: String
     val query: String?
     val fragment: String?
     val authority: String?
@@ -52,7 +53,7 @@ class URI(private val uriString: String) {
     fun getScheme(): String? = scheme
     fun getHost(): String = host
     fun getPort(): Int = port
-    fun getPath(): String? = path
+    fun getPath(): String = path
     fun getQuery(): String? = query
     fun getFragment(): String? = fragment
     fun getAuthority(): String? = authority
@@ -65,10 +66,10 @@ class URI(private val uriString: String) {
         return when {
             str.startsWith("//") -> URI("${scheme ?: "http"}:$str")
             str.startsWith("/") -> URI(base + str)
-            str.startsWith("?") -> URI(base + (path ?: "") + str)
+            str.startsWith("?") -> URI(base + path + str)
             str.startsWith("#") -> URI(uriString.substringBefore('#') + str)
             else -> {
-                val dir = (path ?: "/").substringBeforeLast('/', "")
+                val dir = path.ifEmpty { "/" }.substringBeforeLast('/', "")
                 URI("$base$dir/$str")
             }
         }
@@ -93,14 +94,14 @@ class URL(private val spec: String) {
     val protocol: String? get() = uri.scheme
     val host: String? get() = uri.host
     val port: Int get() = uri.port
-    val path: String? get() = uri.path
+    val path: String get() = uri.path
     val query: String? get() = uri.query
-    val file: String get() = (uri.path ?: "") + (uri.query?.let { "?$it" } ?: "")
+    val file: String get() = uri.path + (uri.query?.let { "?$it" } ?: "")
 
     fun getProtocol(): String? = protocol
     fun getHost(): String? = host
     fun getPort(): Int = port
-    fun getPath(): String? = path
+    fun getPath(): String = path
     fun getQuery(): String? = query
     fun getFile(): String = file
     fun toURI(): URI = uri

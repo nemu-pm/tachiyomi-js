@@ -166,8 +166,8 @@ class ZonedDateTime private constructor(private val dateTime: LocalDateTime, val
             }
         }
 
-        fun parse(text: CharSequence): ZonedDateTime = parse(text, DateTimeFormatter.ISO_ZONED_DATE_TIME)
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): ZonedDateTime = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): ZonedDateTime = parse(text, DateTimeFormatter.ISO_ZONED_DATE_TIME)
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): ZonedDateTime = formatter.parse(text!!, ::from)
     }
 }
 
@@ -286,7 +286,7 @@ class OffsetDateTime private constructor(private val dateTime: LocalDateTime, va
             }
         }
 
-        fun parse(text: CharSequence): OffsetDateTime = parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): OffsetDateTime = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): OffsetDateTime = parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): OffsetDateTime = formatter.parse(text!!, ::from)
     }
 }

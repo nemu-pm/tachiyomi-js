@@ -150,7 +150,7 @@ class LocalTime private constructor(val hour: Int, val minute: Int, val second: 
             }
         }
 
-        fun parse(text: CharSequence): LocalTime = parse(text, DateTimeFormatter.ISO_LOCAL_TIME)
-        fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalTime = formatter.parse(text, ::from)
+        fun parse(text: CharSequence?): LocalTime = parse(text, DateTimeFormatter.ISO_LOCAL_TIME)
+        fun parse(text: CharSequence?, formatter: DateTimeFormatter): LocalTime = formatter.parse(text!!, ::from)
     }
 }
