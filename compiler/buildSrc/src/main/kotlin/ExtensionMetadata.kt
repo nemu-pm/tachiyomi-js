@@ -380,6 +380,40 @@ class KtsEvaluator(private val body: String) {
             return close + 1
         }
 
+        // if (<expr> == <expr>) stmt | { stmts }   (per-language ids: `if (it == "ko") id = …`)
+        Regex("""^if\s*\(""").find(rest)?.let { m ->
+            var depth = 1
+            var j = m.range.last + 1
+            while (j < rest.length && depth > 0) {
+                when (rest[j]) { '(' -> depth++; ')' -> depth-- }
+                j++
+            }
+            val cond = rest.substring(m.range.last + 1, j - 1)
+            val op = Regex("""\s(==|!=)\s""").find(cond) ?: throw IllegalStateException("unsupported if condition: $cond")
+            val left = parseExpr(cond.substring(0, op.range.first).trim(), 0, scope).first
+            val right = parseExpr(cond.substring(op.range.last + 1).trim(), 0, scope).first
+            val holds = (left == right) == (op.groupValues[1] == "==")
+            while (j < rest.length && rest[j] == ' ') j++
+            val body: String
+            val end: Int
+            if (j < rest.length && rest[j] == '{') {
+                var d = 1
+                var k = j + 1
+                while (k < rest.length && d > 0) {
+                    when (rest[k]) { '{' -> d++; '}' -> d-- }
+                    k++
+                }
+                body = rest.substring(j + 1, k - 1)
+                end = k
+            } else {
+                val lineEnd = rest.indexOf('\n', j).let { if (it < 0) rest.length else it }
+                body = rest.substring(j, lineEnd)
+                end = lineEnd
+            }
+            if (holds) evalStatements(body, scope, sourceBlock)
+            return i + end
+        }
+
         // name = <expr>
         Regex("""^(\w+)\s*=\s*""").find(rest)?.let { m ->
             val (value, consumed) = parseExpr(rest, m.range.last + 1, scope)
