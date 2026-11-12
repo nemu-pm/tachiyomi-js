@@ -17,7 +17,8 @@ interface SManga {
     /** extensions-lib 1.6: per-manga scratch data the app persists for the source. */
     var memo: JsonObject
 
-    fun getGenres(): List<String>? = genre?.split(", ")?.map { it.trim() }?.filterNot { it.isBlank() }?.distinct()
+    // No getGenres() here: extensions-lib's SManga has none, and a member would shadow a source's own
+    // getGenres() inside `SManga.create().apply { }` (iken theme).
 
     fun copy() = create().also {
         it.url = url
