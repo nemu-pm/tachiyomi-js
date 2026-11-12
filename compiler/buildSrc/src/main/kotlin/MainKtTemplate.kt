@@ -361,7 +361,9 @@ fun getLatestUpdates(sourceId: String, page: Int): String = try {
 fun searchManga(sourceId: String, page: Int, query: String): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
-    val filters = filterCache[sourceId] ?: FilterList()
+    // The app always passes the source's own filters (defaults when the user set none); sources index
+    // into them (filters.firstInstance<SortFilter>()), so an empty FilterList() would throw.
+    val filters = filterCache.getOrPut(sourceId) { src.getFilterList() }
     val result = runBlocking { src.getSearchManga(page, query, filters) }
     success(MangasPageDto(
         mangas = result.mangas.map { it.toDto() },
