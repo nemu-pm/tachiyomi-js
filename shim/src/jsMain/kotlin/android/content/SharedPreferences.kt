@@ -175,7 +175,9 @@ class BridgedSharedPreferences(private val name: String) : SharedPreferences {
         }
         
         override fun putLong(key: String, value: Long): SharedPreferences.Editor {
-            changes[key] = value
+            // A Kotlin Long crosses js() as an object the host cannot serialize; a JS number
+            // is exact to 2^53, far beyond any preference. getLong reads the number back.
+            changes[key] = value.toDouble()
             removals.remove(key)
             return this
         }
