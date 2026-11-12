@@ -248,6 +248,8 @@ open class Paint(flags: Int = 0) {
     var style: Style = Style.FILL
     var strokeWidth: Float = 1f
     var isAntiAlias: Boolean = (flags and ANTI_ALIAS_FLAG) != 0
+    var isFilterBitmap: Boolean = (flags and FILTER_BITMAP_FLAG) != 0
+    var isDither: Boolean = (flags and DITHER_FLAG) != 0
     var textSize: Float = 12f
     var typeface: Typeface? = null
 
