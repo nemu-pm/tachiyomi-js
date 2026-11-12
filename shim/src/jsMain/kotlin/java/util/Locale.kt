@@ -4,14 +4,32 @@ package java.util
  * Java Locale shim.
  */
 class Locale private constructor(
-    private val language: String,
-    private val country: String = "",
-    private val variant: String = ""
+    /** Public like the JVM's synthetic `locale.language`, which Kotlin/JS does not derive from `getLanguage()`. */
+    val language: String,
+    val country: String = "",
+    val variant: String = ""
 ) {
     fun getLanguage(): String = language
     fun getCountry(): String = country
+    /** Kotlin property access (`locale.language`) does not synthesise from `getLanguage()` on JS. */
+    val languageTag: String get() = toLanguageTag()
+    val displayLanguage: String get() = getDisplayLanguage(ENGLISH)
     fun getVariant(): String = variant
-    
+
+    fun getDisplayLanguage(): String = getDisplayLanguage(ENGLISH)
+
+    /** The language name in [inLocale] via `Intl.DisplayNames`; the raw code where the host has no ICU data. */
+    fun getDisplayLanguage(inLocale: Locale): String {
+        if (language.isEmpty()) return ""
+        val lang = language
+        val tag = inLocale.toLanguageTag()
+        return try {
+            js("new Intl.DisplayNames([tag], { type: 'language' }).of(lang)") as? String ?: lang
+        } catch (e: Throwable) {
+            lang
+        }
+    }
+
     fun getDisplayName(locale: Locale): String {
         // Simple display name - in production this would use Intl API
         return when {
@@ -56,6 +74,14 @@ class Locale private constructor(
         val CHINESE = Locale("zh")
         val SIMPLIFIED_CHINESE = Locale("zh", "CN")
         val TRADITIONAL_CHINESE = Locale("zh", "TW")
+        val CHINA = SIMPLIFIED_CHINESE
+        val PRC = SIMPLIFIED_CHINESE
+        val TAIWAN = TRADITIONAL_CHINESE
+        val FRANCE = Locale("fr", "FR")
+        val GERMANY = Locale("de", "DE")
+        val ITALY = Locale("it", "IT")
+        val CANADA = Locale("en", "CA")
+        val CANADA_FRENCH = Locale("fr", "CA")
         val ROOT = Locale("")
         
         fun getDefault(): Locale = US

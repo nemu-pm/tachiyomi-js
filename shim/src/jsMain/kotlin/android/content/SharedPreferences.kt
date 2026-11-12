@@ -14,7 +14,10 @@ interface SharedPreferences {
     fun contains(key: String): Boolean
     fun edit(): Editor
     fun getAll(): Map<String, *>
-    
+
+    /** Kotlin/JVM reads the Java getter as `prefs.all`; the shim's getter is a plain Kotlin function. */
+    val all: Map<String, *> get() = getAll()
+
     interface Editor {
         fun putString(key: String, value: String?): Editor
         fun putStringSet(key: String, values: Set<String>?): Editor
@@ -175,7 +178,9 @@ class BridgedSharedPreferences(private val name: String) : SharedPreferences {
         }
         
         override fun putLong(key: String, value: Long): SharedPreferences.Editor {
-            changes[key] = value
+            // A Kotlin Long crosses js() as an object the host cannot serialize; a JS number
+            // is exact to 2^53, far beyond any preference. getLong reads the number back.
+            changes[key] = value.toDouble()
             removals.remove(key)
             return this
         }
@@ -250,7 +255,11 @@ open class Context {
     companion object {
         const val MODE_PRIVATE = 0
     }
-    
+
+    /** The host app's id; androidx names the default preferences file after it. */
+    open val packageName: String get() = "eu.kanade.tachiyomi"
+    open val applicationContext: Context get() = this
+
     open fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
         return BridgedSharedPreferences.getInstance(name)
     }

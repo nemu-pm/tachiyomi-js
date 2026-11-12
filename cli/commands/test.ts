@@ -358,8 +358,10 @@ export const all = buildCommand({
       log(pc.red(`  ✗ popular: ${e}`));
     }
 
-    // Test 2: Latest
-    try {
+    // Test 2: Latest (the app hides the tab when the source has no latest feed; calling it throws)
+    if (!source.supportsLatest) {
+      log(pc.dim("Skipping latest (source has no latest feed)"));
+    } else try {
       log(pc.dim("Testing latest..."));
       const latest = unwrapResult<MangasPage>(exports.getLatestUpdates(sourceId, 1));
       const count = latest.mangas?.length ?? 0;
@@ -403,7 +405,7 @@ export const all = buildCommand({
       try {
         log(pc.dim(`Testing details (${manga.title.slice(0, 30)})...`));
         const details = unwrapResult<{ title?: string; url?: string }>(
-          exports.getMangaDetails(sourceId, manga.url)
+          exports.getMangaDetails(sourceId, manga.url, JSON.stringify(manga))
         );
         detailsManga = manga;
         results.push({ test: "details", passed: true, data: { title: details.title || manga.title } });
@@ -424,7 +426,7 @@ export const all = buildCommand({
       try {
         log(pc.dim(`Testing chapters (${manga.title.slice(0, 30)})...`));
         const chapters = unwrapResult<Array<{ name: string; url: string }>>(
-          exports.getChapterList(sourceId, manga.url)
+          exports.getChapterList(sourceId, manga.url, JSON.stringify(manga))
         );
         if (chapters?.length > 0) {
           chaptersData = { manga, chapters };
@@ -475,8 +477,8 @@ export const all = buildCommand({
       const imageResults: Array<{ page: number; format: string | null; size: number }> = [];
 
       for (const page of samplePages) {
+        // An empty imageUrl is normal: fetchImage asks the source for it (getImageUrl) first.
         const imageUrl = page.imageUrl || "";
-        if (!imageUrl) continue;
 
         try {
           const base64 = unwrapResult<string>(

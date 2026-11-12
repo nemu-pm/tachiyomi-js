@@ -134,6 +134,11 @@ class Bitmap private constructor(
      */
     val isRecycled: Boolean = false
 
+    /** Pixels are always packed ARGB here; nullable like the Android getter. */
+    val config: Config? = Config.ARGB_8888
+
+    fun getConfig(): Config? = config
+
     enum class Config {
         ALPHA_8,
         RGB_565,
@@ -166,6 +171,20 @@ class Bitmap private constructor(
         internal fun createFromPixels(width: Int, height: Int, pixels: IntArray): Bitmap {
             return Bitmap(width, height, pixels)
         }
+
+        /**
+         * Create an immutable bitmap from ARGB colors, row-major with the given stride.
+         */
+        fun createBitmap(colors: IntArray, offset: Int, stride: Int, width: Int, height: Int, config: Config): Bitmap {
+            val pixels = IntArray(width * height)
+            for (row in 0 until height) {
+                colors.copyInto(pixels, row * width, offset + row * stride, offset + row * stride + width)
+            }
+            return Bitmap(width, height, pixels)
+        }
+
+        fun createBitmap(colors: IntArray, width: Int, height: Int, config: Config): Bitmap =
+            createBitmap(colors, 0, width, width, height, config)
 
         /**
          * Create a copy of an existing bitmap.

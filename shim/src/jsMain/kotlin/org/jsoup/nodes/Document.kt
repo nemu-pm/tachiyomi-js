@@ -18,7 +18,7 @@ class Document(implDoc: KsoupDocument) : Element(implDoc) {
     /**
      * Get the document's head element.
      */
-    fun head(): Element? = doc.head()?.let { Element(it) }
+    fun head(): Element = Element(doc.head() ?: doc.createElement("head").also { doc.prependChild(it) })
 
     /**
      * Get the document's title.
@@ -36,12 +36,17 @@ class Document(implDoc: KsoupDocument) : Element(implDoc) {
     fun setBaseUri(baseUri: String) {
         doc.setBaseUri(baseUri)
     }
+
+    /**
+     * Create a detached element that resolves relative URLs against this document's base URI.
+     */
+    fun createElement(tagName: String): Element = Element(doc.createElement(tagName))
 }
 
 /**
  * Jsoup Element compatibility wrapper over Ksoup.
  */
-open class Element(internal val impl: KsoupElement) {
+open class Element(internal val impl: KsoupElement) : Node(impl) {
     /**
      * Find elements matching a CSS selector.
      */
@@ -52,15 +57,19 @@ open class Element(internal val impl: KsoupElement) {
      */
     open fun selectFirst(cssQuery: String): Element? = impl.selectFirst(cssQuery)?.let { Element(it) }
 
+    fun select(evaluator: org.jsoup.select.Evaluator): Elements = select(evaluator.cssQuery)
+
+    fun selectFirst(evaluator: org.jsoup.select.Evaluator): Element? = selectFirst(evaluator.cssQuery)
+
     /**
      * Get an attribute value by key.
      */
-    open fun attr(attributeKey: String): String = impl.attr(attributeKey)
+    override fun attr(attributeKey: String): String = impl.attr(attributeKey)
 
     /**
      * Set an attribute value.
      */
-    open fun attr(attributeKey: String, attributeValue: String): Element {
+    override fun attr(attributeKey: String, attributeValue: String): Element {
         impl.attr(attributeKey, attributeValue)
         return this
     }
@@ -68,7 +77,10 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Check if this element has an attribute.
      */
-    fun hasAttr(attributeKey: String): Boolean = impl.hasAttr(attributeKey)
+    override fun hasAttr(attributeKey: String): Boolean = impl.hasAttr(attributeKey)
+
+    /** All attributes, iterable as key/value pairs. */
+    fun attributes(): Attributes = Attributes(impl.attributes())
 
     /**
      * Remove an attribute from this element.
@@ -81,7 +93,66 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Get an absolute URL from an attribute.
      */
-    fun absUrl(attributeKey: String): String = impl.absUrl(attributeKey)
+    override fun absUrl(attributeKey: String): String = impl.absUrl(attributeKey)
+
+    /**
+     * Whether this element's tag is block-level (div, p, ul, ...), as opposed to inline.
+     */
+    fun isBlock(): Boolean = impl.isBlock()
+
+    /**
+     * Get the text nodes that are direct children of this element.
+     */
+    fun textNodes(): List<TextNode> = impl.textNodes().map { TextNode(it) }
+
+    /**
+     * Get the whole, unnormalised text of this element and its children.
+     */
+    fun wholeText(): String = impl.wholeText()
+
+    /**
+     * Get the whole, unnormalised text of this element's own text nodes.
+     */
+    fun wholeOwnText(): String = impl.wholeOwnText()
+
+    /**
+     * Whether this element, or any child, has non-blank text.
+     */
+    fun hasText(): Boolean = impl.hasText()
+
+    /**
+     * Append a node as the last child of this element.
+     */
+    fun appendChild(child: Node): Element {
+        impl.appendChild(child.nodeImpl)
+        return this
+    }
+
+    /**
+     * Insert nodes as children at the index (moving them from their current parents).
+     */
+    fun insertChildren(index: Int, children: Collection<Node>): Element {
+        impl.insertChildren(index, children.map { it.nodeImpl })
+        return this
+    }
+
+    fun insertChildren(index: Int, vararg children: Node): Element = insertChildren(index, children.toList())
+
+    /**
+     * Append text as a text node.
+     */
+    fun appendText(text: String): Element {
+        impl.appendText(text)
+        return this
+    }
+
+    /**
+     * Prepend text as a text node.
+     */
+    fun prependText(text: String): Element {
+        impl.prependText(text)
+        return this
+    }
 
     /**
      * Get the combined text of this element and its children.
@@ -117,7 +188,7 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Get the outer HTML of this element.
      */
-    fun outerHtml(): String = impl.outerHtml()
+    override fun outerHtml(): String = impl.outerHtml()
 
     /**
      * Get the tag name of this element.
@@ -138,6 +209,11 @@ open class Element(internal val impl: KsoupElement) {
      * Get the element's class names as a set.
      */
     fun classNames(): Set<String> = impl.classNames()
+
+    /**
+     * The literal class attribute.
+     */
+    fun className(): String = impl.className()
 
     /**
      * Check if this element has the specified class.
@@ -235,7 +311,7 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Get the next sibling element.
      */
-    fun nextElementSibling(): Element? = impl.nextElementSibling()?.let { Element(it) }
+    override fun nextElementSibling(): Element? = impl.nextElementSibling()?.let { Element(it) }
 
     /**
      * Get all next sibling elements.
@@ -245,7 +321,7 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Get the previous sibling element.
      */
-    fun previousElementSibling(): Element? = impl.previousElementSibling()?.let { Element(it) }
+    override fun previousElementSibling(): Element? = impl.previousElementSibling()?.let { Element(it) }
 
     /**
      * Get all previous sibling elements.
@@ -300,7 +376,7 @@ open class Element(internal val impl: KsoupElement) {
     /**
      * Remove this element from the DOM.
      */
-    fun remove(): Element {
+    override fun remove(): Element {
         impl.remove()
         return this
     }
@@ -417,16 +493,6 @@ open class Element(internal val impl: KsoupElement) {
      * Get the element index among its siblings.
      */
     fun elementSiblingIndex(): Int = impl.elementSiblingIndex()
-
-    override fun toString(): String = impl.toString()
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is Element) return false
-        return impl == other.impl
-    }
-
-    override fun hashCode(): Int = impl.hashCode()
 }
 
 /**
@@ -493,6 +559,15 @@ class Elements internal constructor(private val impl: KsoupElements) : AbstractL
      * Find elements matching a CSS selector within these elements.
      */
     fun select(cssQuery: String): Elements = Elements(impl.select(cssQuery))
+
+    /**
+     * First element matching a CSS selector within these elements, or null (jsoup 1.19).
+     */
+    fun selectFirst(cssQuery: String): Element? = impl.select(cssQuery).firstOrNull()?.let { Element(it) }
+
+    fun select(evaluator: org.jsoup.select.Evaluator): Elements = select(evaluator.cssQuery)
+
+    fun selectFirst(evaluator: org.jsoup.select.Evaluator): Element? = selectFirst(evaluator.cssQuery)
 
     /**
      * Filter elements that do not match the selector.

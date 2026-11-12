@@ -10,9 +10,6 @@ object CodeTransformations {
         // Input: "[^]+" -> Output: "[^\\]+" (Kotlin string) -> [^\]]+ (regex pattern)
         Regex("""\[\^]""") to """[^\\\\]""",
         
-        // Replace okhttp3.ResponseBody.Companion.asResponseBody import with okio.asResponseBody
-        Regex("""import okhttp3\.ResponseBody\.Companion\.asResponseBody""") to "import okio.asResponseBody",
-        
         // CSS attribute selectors with escaped = cause ksoup regex issues
         // Match: [attr*=value\\=] -> [attr*=\"value=\"] (escaped quotes for Kotlin string)
         // Note: In replacement string, need \\\\ for literal backslash (Kotlin string + regex replacement)
@@ -23,6 +20,24 @@ object CodeTransformations {
         // Need \\\\] in raw string to produce \\] in output (which is \] in the Kotlin string's regex)
         Regex("""(\\\\\[.*?)\](\)"\.toRegex)""") to """$1\\\\]$2""",
         
+        // kotlin.jvm.Volatile / Synchronized are deprecated-as-error on JS (and kotlin.concurrent.Volatile is
+        // an optional expectation, usable only in common sources); the runtime is single-threaded anyway.
+        Regex("""@Volatile\b\s*""") to "",
+        Regex("""@Synchronized\b\s*""") to "",
+        // JvmStatic and JvmInline are optional expectations too; JS value classes need no annotation.
+        Regex("""@JvmStatic\b\s*""") to "",
+        Regex("""@JvmInline\b\s*""") to "",
+
+        // java.lang exception classes are kotlin.* classes on JS, visible without an import.
+        Regex(
+            """^import java\.lang\.(?:ArithmeticException|ClassCastException|Exception|IllegalArgumentException|IllegalStateException|IndexOutOfBoundsException|NullPointerException|NumberFormatException|RuntimeException|UnsupportedOperationException|StringBuilder)\s*$""",
+            RegexOption.MULTILINE,
+        ) to "",
+        // JVM-only stdlib members that the compat package provides instead.
+        Regex("""^import java\.lang\.String\.CASE_INSENSITIVE_ORDER\s*$""", RegexOption.MULTILINE) to "import tachiyomi.shim.compat.CASE_INSENSITIVE_ORDER",
+        Regex("""^import kotlin\.io\.use\s*$""", RegexOption.MULTILINE) to "import okio.use",
+        Regex("""^import kotlin\.time\.(toJavaInstant|toKotlinInstant)\s*$""", RegexOption.MULTILINE) to "import tachiyomi.shim.compat.$1",
+
         // Fix JS name clashes: property and function have same name
         Regex("""fun useLoadMoreRequest\(\)""") to "fun shouldUseLoadMore()",
         Regex("""\buseLoadMoreRequest\(\)""") to "shouldUseLoadMore()",
@@ -36,6 +51,11 @@ object CodeTransformations {
         "import java.lang.Integer", 
         "import java.lang.Class",
         "import java.lang.Character",
+        "import java.lang.Thread",
+        "import java.lang.Math",
+        "import java.lang.SecurityException",
+        // kotlin.jvm.* (JvmStatic, Synchronized, Volatile, Transient, …) is a default import on the JVM only.
+        "import kotlin.jvm.*",
         "import java.nio.charset.Charsets",
         "import java.nio.charset.toString",
         "import java.nio.charset.toByteArray",
@@ -45,7 +65,8 @@ object CodeTransformations {
     
     /** Files that have JS-compatible shims - skip preprocessing */
     val shimmedFiles = setOf(
-        "eu/kanade/tachiyomi/lib/i18n/Intl.kt"
+        "keiyoushi/lib/i18n/Intl.kt",
+        "keiyoushi/lib/cronet/Cronet.kt",
     )
 }
 

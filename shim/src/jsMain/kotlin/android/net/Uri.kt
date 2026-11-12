@@ -34,7 +34,12 @@ class Uri private constructor(private val uriString: String) {
     
     val fragment: String?
         get() = uriString.substringAfter("#", "").takeIf { it.isNotEmpty() }
-    
+
+    /** The string is kept as given, so the encoded forms are the same slices. */
+    val encodedPath: String? get() = path
+    val encodedQuery: String? get() = query
+    val encodedFragment: String? get() = fragment
+
     fun getQueryParameter(key: String): String? {
         val query = this.query ?: return null
         return query.split("&")

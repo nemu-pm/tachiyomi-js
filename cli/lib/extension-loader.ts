@@ -1,14 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { installHttpBridge } from "./http";
+import { installPrefsBridge } from "../../runtime/src/prefs-bridge";
+import { registerImageCodec } from "../../runtime/src/image-codec";
 
 export interface TachiyomiExports {
   getManifest(): string;
   getPopularManga(sourceId: string, page: number): string;
   getLatestUpdates(sourceId: string, page: number): string;
   searchManga(sourceId: string, page: number, query: string): string;
-  getMangaDetails(sourceId: string, mangaUrl: string): string;
-  getChapterList(sourceId: string, mangaUrl: string): string;
+  /** mangaJson is the manga as listed (a MangaDto); sources read title, cover and author off it */
+  getMangaDetails(sourceId: string, mangaUrl: string, mangaJson?: string): string;
+  getChapterList(sourceId: string, mangaUrl: string, mangaJson?: string): string;
   getPageList(sourceId: string, chapterUrl: string): string;
   getFilterList(sourceId: string): string;
   fetchImage(sourceId: string, pageUrl: string, pageImageUrl: string): string;
@@ -121,8 +124,10 @@ export function listExtensionsWithInfo(outputDir: string): ExtensionListItem[] {
 
 /** Load and execute an extension */
 export function loadExtension(outputDir: string, extensionId: string): LoadedExtension {
-  // Install HTTP bridge before loading extension
+  // Install the bridges before loading extension: HTTP, SharedPreferences and the image codec
   installHttpBridge();
+  installPrefsBridge();
+  registerImageCodec();
 
   const extDir = path.join(outputDir, extensionId);
   const manifestPath = path.join(extDir, "manifest.json");

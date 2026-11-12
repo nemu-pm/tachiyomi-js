@@ -54,10 +54,21 @@ abstract class PreprocessSourceTask : DefaultTask() {
             println("  lib deps: ${libs.joinToString(", ")}")
         }
         
-        val shimmedFiles = CodeTransformations.shimmedFiles + 
+        val shimmedFiles = CodeTransformations.shimmedFiles +
             CodeTransformations.shimmedFiles.map { it.replace("/", File.separator) }
-        val imports = CodeTransformations.jsImports
-        
+
+        // An injected `import java.lang.Character` would shadow an extension's own `class Character`
+        // (explicit imports win over same-package declarations), so skip imports the sources declare.
+        val sourceDirs = libPaths.get().map { File(it) } + listOfNotNull(multisrcPath.orNull?.asFile) + extensionSourceDir.get().asFile
+        val declaredNames = sourceDirs.filter { it.exists() }
+            .flatMap { dir -> dir.walk().filter { it.isFile && it.extension == "kt" }.toList() }
+            .flatMap { file -> Regex("""^(?:\w+\s+)*(?:class|object|interface|typealias)\s+(\w+)""", RegexOption.MULTILINE).findAll(file.readText()).map { it.groupValues[1] }.toList() }
+            .toSet()
+        val imports = CodeTransformations.jsImports.filter { imp ->
+            val name = imp.substringAfterLast('.')
+            name == "*" || name !in declaredNames
+        }
+
         fun processSourceDir(sourceDir: File) {
             if (!sourceDir.exists()) {
                 println("  WARNING: Source dir not found: $sourceDir")

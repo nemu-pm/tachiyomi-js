@@ -1,14 +1,18 @@
-/**
- * JS-compatible implementation of keiyoushi.utils.Preferences
- * Uses our Injekt shim instead of the real one.
- */
 package keiyoushi.utils
 
-import android.app.Application
+// tachiyomi-js: shim imports (added by scripts/sync-core.sh)
+import java.lang.System
+import java.lang.Integer
+import java.lang.Class
+import java.lang.Character
+import java.nio.charset.Charsets
+import java.nio.charset.toString
+import java.nio.charset.toByteArray
+import java.util.Arrays
+import tachiyomi.shim.compat.*
+
 import android.content.SharedPreferences
 import eu.kanade.tachiyomi.source.online.HttpSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * Returns the [SharedPreferences] associated with current source id
@@ -21,13 +25,10 @@ inline fun HttpSource.getPreferences(
  * Lazily returns the [SharedPreferences] associated with current source id
  */
 inline fun HttpSource.getPreferencesLazy(
-    crossinline migration: SharedPreferences.() -> Unit = { }
+    crossinline migration: SharedPreferences.() -> Unit = { },
 ) = lazy { getPreferences(migration) }
 
 /**
  * Returns the [SharedPreferences] associated with passed source id
  */
-@Suppress("NOTHING_TO_INLINE")
-inline fun getPreferences(sourceId: Long): SharedPreferences =
-    Injekt.get(Application::class).getSharedPreferences("source_$sourceId", 0x0000)
-
+fun getPreferences(sourceId: Long): SharedPreferences = applicationContext.getSharedPreferences("source_$sourceId", 0x0000)

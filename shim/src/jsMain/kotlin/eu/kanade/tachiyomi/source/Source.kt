@@ -1,32 +1,36 @@
 package eu.kanade.tachiyomi.source
 
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
-import rx.Observable
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 
+/**
+ * extensions-lib 1.6 [Source]. Everything is `suspend`; the host drives these through
+ * `runBlocking`, which the shim's coroutine stub completes synchronously (HTTP is sync-over-fetch).
+ */
 interface Source {
     val id: Long
     val name: String
-    val lang: String
-        get() = ""
 
-    fun getMangaDetails(manga: SManga): SManga
+    val supportsLatest: Boolean
 
-    fun getChapterList(manga: SManga): List<SChapter>
+    fun getFilterList(): FilterList = FilterList()
 
-    fun getPageList(chapter: SChapter): List<Page>
+    suspend fun getPopularManga(page: Int): MangasPage
 
-    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getMangaDetails"))
-    fun fetchMangaDetails(manga: SManga): Observable<SManga> =
-        throw IllegalStateException("Not used")
+    suspend fun getLatestUpdates(page: Int): MangasPage
 
-    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getChapterList"))
-    fun fetchChapterList(manga: SManga): Observable<List<SChapter>> =
-        throw IllegalStateException("Not used")
+    suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage
 
-    @Deprecated("Use the non-RxJava API instead", ReplaceWith("getPageList"))
-    fun fetchPageList(chapter: SChapter): Observable<List<Page>> =
-        throw IllegalStateException("Not used")
+    suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+    ): SMangaUpdate
+
+    suspend fun getPageList(chapter: SChapter): List<Page>
 }
-

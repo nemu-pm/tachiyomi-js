@@ -130,12 +130,12 @@ function createLoadedExtension(
         },
 
         // Content methods
-        async getMangaDetails(mangaUrl) {
-          return workerApi.getMangaDetails(sourceId, mangaUrl);
+        async getMangaDetails(manga) {
+          return workerApi.getMangaDetails(sourceId, manga);
         },
 
-        async getChapterList(mangaUrl) {
-          return workerApi.getChapterList(sourceId, mangaUrl);
+        async getChapterList(manga) {
+          return workerApi.getChapterList(sourceId, manga);
         },
 
         async getPageList(chapterUrl) {

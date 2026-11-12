@@ -5,14 +5,16 @@
  */
 
 import type { HttpBridge, KotlinHttpResult } from './http';
-import type {
-  Manga,
-  Chapter,
-  Page,
-  MangasPage,
-  SourceInfo,
-  FilterState,
-  SettingsSchema,
+import {
+  MangaStatus,
+  type Manga,
+  type MangaInput,
+  type Chapter,
+  type Page,
+  type MangasPage,
+  type SourceInfo,
+  type FilterState,
+  type SettingsSchema,
 } from './types';
 
 // ============================================================================
@@ -35,11 +37,15 @@ export interface ExtensionInstance {
   /** Search for manga */
   searchManga(sourceId: string, page: number, query: string): MangasPage;
   
-  /** Get full manga details */
-  getMangaDetails(sourceId: string, manga: Pick<Manga, 'url'>): Manga;
-  
-  /** Get chapter list for a manga */
-  getChapterList(sourceId: string, manga: Pick<Manga, 'url'>): Chapter[];
+  /**
+   * Get full manga details. Pass the library row (at least url and title) when you have it: the app
+   * does, and sources read title, cover and author off it. The result is the row with the fetched
+   * fields merged in.
+   */
+  getMangaDetails(sourceId: string, manga: MangaInput): Manga;
+
+  /** Get chapter list for a manga; pass the library row as for getMangaDetails */
+  getChapterList(sourceId: string, manga: MangaInput): Chapter[];
   
   /** Get page list for a chapter */
   getPageList(sourceId: string, chapter: Pick<Chapter, 'url'>): Page[];
@@ -80,8 +86,8 @@ interface KotlinExports {
   getPopularManga(sourceId: string, page: number): string;
   getLatestUpdates(sourceId: string, page: number): string;
   searchManga(sourceId: string, page: number, query: string): string;
-  getMangaDetails(sourceId: string, mangaUrl: string): string;
-  getChapterList(sourceId: string, mangaUrl: string): string;
+  getMangaDetails(sourceId: string, mangaUrl: string, mangaJson?: string): string;
+  getChapterList(sourceId: string, mangaUrl: string, mangaJson?: string): string;
   getPageList(sourceId: string, chapterUrl: string): string;
   getFilterList(sourceId: string): string;
   resetFilters(sourceId: string): string;
@@ -100,6 +106,24 @@ interface KotlinResult<T> {
   ok: boolean;
   data?: T;
   error?: unknown;
+}
+
+/**
+ * The MangaDto the Kotlin side decodes (MainKtTemplate.inputManga). Every field is present: the decoder
+ * rejects a missing non-null field and would fall back to an empty manga.
+ */
+export function mangaInputJson(manga: MangaInput): string {
+  return JSON.stringify({
+    url: manga.url,
+    title: manga.title ?? '',
+    artist: manga.artist ?? null,
+    author: manga.author ?? null,
+    description: manga.description ?? null,
+    genre: manga.genre ?? [],
+    status: manga.status ?? MangaStatus.UNKNOWN,
+    thumbnailUrl: manga.thumbnailUrl ?? null,
+    initialized: manga.initialized ?? false,
+  });
 }
 
 function unwrapResult<T>(json: string): T {
@@ -230,13 +254,13 @@ class ExtensionInstanceImpl implements ExtensionInstance {
     return unwrapResult<MangasPage>(json);
   }
   
-  getMangaDetails(sourceId: string, manga: Pick<Manga, 'url'>): Manga {
-    const json = this.exports.getMangaDetails(sourceId, manga.url);
+  getMangaDetails(sourceId: string, manga: MangaInput): Manga {
+    const json = this.exports.getMangaDetails(sourceId, manga.url, mangaInputJson(manga));
     return unwrapResult<Manga>(json);
   }
-  
-  getChapterList(sourceId: string, manga: Pick<Manga, 'url'>): Chapter[] {
-    const json = this.exports.getChapterList(sourceId, manga.url);
+
+  getChapterList(sourceId: string, manga: MangaInput): Chapter[] {
+    const json = this.exports.getChapterList(sourceId, manga.url, mangaInputJson(manga));
     return unwrapResult<Chapter[]>(json);
   }
   

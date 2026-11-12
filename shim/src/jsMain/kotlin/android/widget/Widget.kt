@@ -39,9 +39,10 @@ class Toast private constructor(context: Context?) {
         const val LENGTH_SHORT = 0
         const val LENGTH_LONG = 1
         
-        fun makeText(context: Context?, text: CharSequence, duration: Int): Toast {
+        /** `text` is nullable as the Java platform type: sources pass `e.message`. */
+        fun makeText(context: Context?, text: CharSequence?, duration: Int): Toast {
             return Toast(context).apply {
-                setText(text)
+                setText(text ?: "")
                 setDuration(duration)
             }
         }
@@ -51,20 +52,41 @@ class Toast private constructor(context: Context?) {
 open class View {
     var rootView: View = this
     var isEnabled: Boolean = true
-    
+    var visibility: Int = 0
+
     fun <T : View> findViewById(id: Int): T? = null
+
+    fun setOnClickListener(listener: ((View) -> Unit)?) {}
+
+    /** Runs now; there is no UI thread to post to. */
+    fun post(action: () -> Unit): Boolean {
+        action()
+        return true
+    }
 }
 
 open class EditText : View() {
     var text: Editable = EditableImpl("")
     var error: CharSequence? = null
-    
+    var hint: CharSequence? = null
+    var inputType: Int = 0
+
     private val textWatchers = mutableListOf<TextWatcher>()
-    
+
+    fun setText(value: CharSequence?) {
+        text = EditableImpl(value?.toString() ?: "")
+    }
+
+    fun setSelection(index: Int) {}
+    fun setSelection(start: Int, stop: Int) {}
+    fun selectAll() {}
+    fun setHorizontallyScrolling(scrolling: Boolean) {}
+    fun setSingleLine(single: Boolean = true) {}
+
     fun addTextChangedListener(watcher: TextWatcher) {
         textWatchers.add(watcher)
     }
-    
+
     fun removeTextChangedListener(watcher: TextWatcher) {
         textWatchers.remove(watcher)
     }
@@ -81,16 +103,4 @@ private class EditableImpl(private var content: String) : Editable() {
     override fun get(index: Int): Char = content[index]
     override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = content.subSequence(startIndex, endIndex)
     override fun toString(): String = content
-}
-
-// Android R class stub
-object R {
-    object id {
-        const val button1 = 0x01020019
-        const val edit = 0x01020001
-    }
-    object string {
-        const val ok = 0x01040000
-        const val cancel = 0x01040001
-    }
 }

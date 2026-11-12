@@ -1,104 +1,100 @@
 package okhttp3
 
-class Request private constructor(
+import java.lang.Class as JClass
+import tachiyomi.shim.compat.java
+
+class Request internal constructor(
     val url: HttpUrl,
     val method: String,
     val headers: Headers,
     val body: RequestBody?,
-    val cacheControl: CacheControl
+    private val lazyCacheControl: CacheControl?,
+    val tags: Map<JClass<*>, Any>,
 ) {
-    fun newBuilder(): Builder = Builder()
-        .url(url)
-        .method(method, body)
-        .headers(headers)
-        .cacheControl(cacheControl)
-    
+    val cacheControl: CacheControl get() = lazyCacheControl ?: CacheControl.parse(headers)
+
+    val isHttps: Boolean get() = url.isHttps
+
+    fun header(name: String): String? = headers[name]
+
+    fun headers(name: String): List<String> = headers.values(name)
+
+    fun tag(): Any? = tag(Any::class.java)
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T> tag(type: JClass<T>): T? = tags[type] as T?
+
+    fun newBuilder(): Builder = Builder(this)
+
+    override fun toString(): String = "Request{method=$method, url=$url}"
+
     class Builder {
         private var url: HttpUrl? = null
         private var method: String = "GET"
         private var headers: Headers.Builder = Headers.Builder()
         private var body: RequestBody? = null
-        private var cacheControl: CacheControl = CacheControl.Builder().build()
-        
-        fun url(url: String): Builder {
-            this.url = HttpUrl.run { url.toHttpUrl() }
-            return this
+        private var tags: MutableMap<JClass<*>, Any> = mutableMapOf()
+
+        constructor()
+
+        internal constructor(request: Request) {
+            url = request.url
+            method = request.method
+            body = request.body
+            headers = request.headers.newBuilder()
+            tags = request.tags.toMutableMap()
         }
-        
-        fun url(url: HttpUrl): Builder {
-            this.url = url
-            return this
+
+        fun url(url: String): Builder = apply { this.url = url.toHttpUrl() }
+
+        fun url(url: HttpUrl): Builder = apply { this.url = url }
+
+        fun url(url: HttpUrl.Builder): Builder = apply { this.url = url.build() }
+
+        fun header(name: String, value: String): Builder = apply { headers.set(name, value) }
+
+        fun addHeader(name: String, value: String): Builder = apply { headers.add(name, value) }
+
+        fun removeHeader(name: String): Builder = apply { headers.removeAll(name) }
+
+        fun headers(headers: Headers): Builder = apply { this.headers = headers.newBuilder() }
+
+        fun cacheControl(cacheControl: CacheControl): Builder {
+            val value = cacheControl.toString()
+            return if (value.isEmpty()) removeHeader("Cache-Control") else header("Cache-Control", value)
         }
-        
-        fun url(url: HttpUrl.Builder): Builder {
-            this.url = url.build()
-            return this
-        }
-        
-        fun header(name: String, value: String): Builder {
-            headers.set(name, value)
-            return this
-        }
-        
-        fun addHeader(name: String, value: String): Builder {
-            headers.add(name, value)
-            return this
-        }
-        
-        fun removeHeader(name: String): Builder {
-            headers.removeAll(name)
-            return this
-        }
-        
-        fun headers(headers: Headers): Builder {
-            this.headers = headers.newBuilder()
-            return this
-        }
-        
-        fun get(): Builder {
-            method = "GET"
-            body = null
-            return this
-        }
-        
-        fun post(body: RequestBody): Builder {
-            method = "POST"
-            this.body = body
-            return this
-        }
-        
-        fun put(body: RequestBody): Builder {
-            method = "PUT"
-            this.body = body
-            return this
-        }
-        
-        fun delete(body: RequestBody? = null): Builder {
-            method = "DELETE"
-            this.body = body
-            return this
-        }
-        
-        fun method(method: String, body: RequestBody?): Builder {
+
+        fun get(): Builder = method("GET", null)
+
+        fun head(): Builder = method("HEAD", null)
+
+        fun post(body: RequestBody): Builder = method("POST", body)
+
+        fun put(body: RequestBody): Builder = method("PUT", body)
+
+        fun patch(body: RequestBody): Builder = method("PATCH", body)
+
+        fun delete(body: RequestBody? = null): Builder = method("DELETE", body)
+
+        fun method(method: String, body: RequestBody?): Builder = apply {
+            require(method.isNotEmpty()) { "method.isEmpty() == true" }
             this.method = method
             this.body = body
-            return this
         }
-        
-        fun cacheControl(cacheControl: CacheControl): Builder {
-            this.cacheControl = cacheControl
-            return this
+
+        fun tag(tag: Any?): Builder = tag(Any::class.java, tag)
+
+        fun <T> tag(type: JClass<in T>, tag: T?): Builder = apply {
+            if (tag == null) tags.remove(type) else tags[type] = tag
         }
-        
-        fun build(): Request {
-            return Request(
-                url = url ?: throw IllegalStateException("URL required"),
-                method = method,
-                headers = headers.build(),
-                body = body,
-                cacheControl = cacheControl
-            )
-        }
+
+        fun build(): Request = Request(
+            url = url ?: throw IllegalStateException("url == null"),
+            method = method,
+            headers = headers.build(),
+            body = body,
+            lazyCacheControl = null,
+            tags = tags.toMap(),
+        )
     }
 }
-

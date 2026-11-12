@@ -1,18 +1,8 @@
 package eu.kanade.tachiyomi.source
 
-import android.content.SharedPreferences
-import android.content.InMemorySharedPreferences
 import androidx.preference.PreferenceScreen
 
-interface ConfigurableSource : Source {
-    fun getSourcePreferences(): SharedPreferences {
-        return InMemorySharedPreferences.getInstance("source_$id")
-    }
-
-    fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // No-op by default in WASM
-    }
+/** extensions-lib 1.6: a plain interface, no longer a [Source]. */
+interface ConfigurableSource {
+    fun setupPreferenceScreen(screen: PreferenceScreen)
 }
-
-fun ConfigurableSource.preferenceKey(): String = "source_$id"
-

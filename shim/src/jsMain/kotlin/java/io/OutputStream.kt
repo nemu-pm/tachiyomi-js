@@ -1,41 +1,50 @@
 package java.io
 
-abstract class OutputStream {
+abstract class OutputStream : Closeable {
     abstract fun write(b: Int)
-    
+
     open fun write(b: ByteArray) {
         write(b, 0, b.size)
     }
-    
+
     open fun write(b: ByteArray, off: Int, len: Int) {
         for (i in off until off + len) {
             write(b[i].toInt() and 0xFF)
         }
     }
-    
+
     open fun flush() {}
-    open fun close() {}
+    override fun close() {}
 }
 
-class ByteArrayOutputStream : OutputStream() {
-    private val buf = mutableListOf<Byte>()
-    
+class ByteArrayOutputStream(initialSize: Int = 32) : OutputStream() {
+    private var buf = ByteArray(initialSize.coerceAtLeast(1))
+    private var count = 0
+
+    private fun ensure(extra: Int) {
+        if (count + extra > buf.size) {
+            buf = buf.copyOf(maxOf(buf.size * 2, count + extra))
+        }
+    }
+
     override fun write(b: Int) {
-        buf.add(b.toByte())
+        ensure(1)
+        buf[count++] = b.toByte()
     }
-    
+
     override fun write(b: ByteArray, off: Int, len: Int) {
-        buf.addAll(b.slice(off until off + len))
+        ensure(len)
+        b.copyInto(buf, count, off, off + len)
+        count += len
     }
-    
-    fun toByteArray(): ByteArray = buf.toByteArray()
-    
-    fun size(): Int = buf.size
-    
-    override fun toString(): String = buf.toByteArray().decodeToString()
-    
+
+    fun toByteArray(): ByteArray = buf.copyOf(count)
+
+    fun size(): Int = count
+
+    override fun toString(): String = toByteArray().decodeToString()
+
     fun reset() {
-        buf.clear()
+        count = 0
     }
 }
-
