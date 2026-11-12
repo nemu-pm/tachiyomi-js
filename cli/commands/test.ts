@@ -403,7 +403,7 @@ export const all = buildCommand({
       try {
         log(pc.dim(`Testing details (${manga.title.slice(0, 30)})...`));
         const details = unwrapResult<{ title?: string; url?: string }>(
-          exports.getMangaDetails(sourceId, manga.url)
+          exports.getMangaDetails(sourceId, manga.url, JSON.stringify(manga))
         );
         detailsManga = manga;
         results.push({ test: "details", passed: true, data: { title: details.title || manga.title } });
@@ -424,7 +424,7 @@ export const all = buildCommand({
       try {
         log(pc.dim(`Testing chapters (${manga.title.slice(0, 30)})...`));
         const chapters = unwrapResult<Array<{ name: string; url: string }>>(
-          exports.getChapterList(sourceId, manga.url)
+          exports.getChapterList(sourceId, manga.url, JSON.stringify(manga))
         );
         if (chapters?.length > 0) {
           chaptersData = { manga, chapters };

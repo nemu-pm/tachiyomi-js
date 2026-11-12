@@ -29,6 +29,7 @@ export interface Manga {
 }
 
 /** What a details or chapter fetch takes: the library row if you have it, else just the url */
+export type MangaInput = Pick<Manga, 'url'> & Partial<Manga>;
 
 export interface Chapter {
   url: string;

@@ -5,9 +5,12 @@
 import * as Comlink from "comlink";
 import { createRuntime, type ExtensionInstance } from "../runtime";
 import { createSyncXhrBridge } from "../http/sync-xhr";
+import { installPrefsBridge, initPreferences, flushPrefChanges, type PrefChange } from "../prefs-bridge";
+import { registerImageCodec } from "../image-codec";
 import type {
   MangasPage,
   Manga,
+  MangaInput,
   Chapter,
   Page,
   FilterState,
@@ -15,143 +18,9 @@ import type {
   ExtensionManifest,
 } from "../types";
 
-// ============ Preferences Storage ============
-// SharedPreferences implementation for Kotlin/JS
-
-const prefsStorage = new Map<string, Map<string, unknown>>();
-let pendingPrefChanges: Array<{ name: string; key: string; value: unknown }> = [];
-
-class SharedPreferencesImpl {
-  private name: string;
-  private data: Map<string, unknown>;
-
-  constructor(name: string) {
-    this.name = name;
-    if (!prefsStorage.has(name)) {
-      prefsStorage.set(name, new Map());
-    }
-    this.data = prefsStorage.get(name)!;
-  }
-
-  getString(key: string, defValue: string | null): string | null {
-    const val = this.data.get(key);
-    return typeof val === "string" ? val : defValue;
-  }
-
-  getBoolean(key: string, defValue: boolean): boolean {
-    const val = this.data.get(key);
-    return typeof val === "boolean" ? val : defValue;
-  }
-
-  getInt(key: string, defValue: number): number {
-    const val = this.data.get(key);
-    return typeof val === "number" ? Math.floor(val) : defValue;
-  }
-
-  getLong(key: string, defValue: number): number {
-    return this.getInt(key, defValue);
-  }
-
-  getFloat(key: string, defValue: number): number {
-    const val = this.data.get(key);
-    return typeof val === "number" ? val : defValue;
-  }
-
-  getStringSet(key: string, defValue: string[] | null): string[] | null {
-    const val = this.data.get(key);
-    return Array.isArray(val) ? val : defValue;
-  }
-
-  getAll(): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of this.data.entries()) {
-      result[k] = v;
-    }
-    return result;
-  }
-
-  contains(key: string): boolean {
-    return this.data.has(key);
-  }
-
-  edit(): SharedPreferencesEditor {
-    return new SharedPreferencesEditor(this.name, this.data);
-  }
-}
-
-class SharedPreferencesEditor {
-  private name: string;
-  private data: Map<string, unknown>;
-  private changes: Map<string, unknown | null> = new Map();
-
-  constructor(name: string, data: Map<string, unknown>) {
-    this.name = name;
-    this.data = data;
-  }
-
-  putString(key: string, value: string | null): this {
-    this.changes.set(key, value);
-    return this;
-  }
-
-  putBoolean(key: string, value: boolean): this {
-    this.changes.set(key, value);
-    return this;
-  }
-
-  putInt(key: string, value: number): this {
-    this.changes.set(key, Math.floor(value));
-    return this;
-  }
-
-  putLong(key: string, value: number): this {
-    return this.putInt(key, value);
-  }
-
-  putFloat(key: string, value: number): this {
-    this.changes.set(key, value);
-    return this;
-  }
-
-  putStringSet(key: string, value: string[] | null): this {
-    this.changes.set(key, value);
-    return this;
-  }
-
-  remove(key: string): this {
-    this.changes.set(key, null);
-    return this;
-  }
-
-  clear(): this {
-    for (const key of this.data.keys()) {
-      this.changes.set(key, null);
-    }
-    return this;
-  }
-
-  apply(): void {
-    this.commit();
-  }
-
-  commit(): boolean {
-    for (const [key, value] of this.changes) {
-      if (value === null) {
-        this.data.delete(key);
-      } else {
-        this.data.set(key, value);
-      }
-      pendingPrefChanges.push({ name: this.name, key, value });
-    }
-    this.changes.clear();
-    return true;
-  }
-}
-
-// Expose SharedPreferences factory to Kotlin/JS
-(globalThis as Record<string, unknown>).getSharedPreferences = (name: string) => {
-  return new SharedPreferencesImpl(name);
-};
+// The shim reaches both through globals; install them before any extension code runs.
+installPrefsBridge();
+registerImageCodec();
 
 // ============ Worker API ============
 
@@ -176,17 +45,11 @@ const workerApi = {
   // ============ Preferences Methods ============
 
   initPreferences(prefsName: string, values: Record<string, unknown>): void {
-    const prefs = new Map<string, unknown>();
-    for (const [key, value] of Object.entries(values)) {
-      prefs.set(key, value);
-    }
-    prefsStorage.set(prefsName, prefs);
+    initPreferences(prefsName, values);
   },
 
-  flushPrefChanges(): Array<{ name: string; key: string; value: unknown }> {
-    const changes = pendingPrefChanges;
-    pendingPrefChanges = [];
-    return changes;
+  flushPrefChanges(): PrefChange[] {
+    return flushPrefChanges();
   },
 
   getSettingsSchema(sourceId: string): string | null {
@@ -209,7 +72,7 @@ const workerApi = {
   ): Promise<{ success: boolean; manifest?: ExtensionManifest }> {
     try {
       console.log("[Tachiyomi Worker] Loading JS from:", jsUrl);
-      
+
       // Initialize runtime with proxy
       initRuntime(proxyUrl);
       if (!runtime) throw new Error("Failed to initialize runtime");
@@ -333,20 +196,21 @@ const workerApi = {
     }
   },
 
-  getMangaDetails(sourceId: string, mangaUrl: string): Manga | null {
+  /** Pass the library row when you have it: sources read title, cover and author off it. */
+  getMangaDetails(sourceId: string, manga: string | MangaInput): Manga | null {
     if (!extension) return null;
     try {
-      return extension.getMangaDetails(sourceId, { url: mangaUrl });
+      return extension.getMangaDetails(sourceId, typeof manga === "string" ? { url: manga } : manga);
     } catch (e) {
       console.error("[Tachiyomi Worker] getMangaDetails error:", e);
       return null;
     }
   },
 
-  getChapterList(sourceId: string, mangaUrl: string): Chapter[] {
+  getChapterList(sourceId: string, manga: string | MangaInput): Chapter[] {
     if (!extension) return [];
     try {
-      return extension.getChapterList(sourceId, { url: mangaUrl });
+      return extension.getChapterList(sourceId, typeof manga === "string" ? { url: manga } : manga);
     } catch (e) {
       console.error("[Tachiyomi Worker] getChapterList error:", e);
       return [];
@@ -388,4 +252,3 @@ Comlink.expose(workerApi);
 
 /** Type alias for Comlink API */
 export type WorkerApi = typeof workerApi;
-

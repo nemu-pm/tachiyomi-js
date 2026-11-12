@@ -3,6 +3,7 @@
  */
 import type {
   Manga,
+  MangaInput,
   Chapter,
   Page,
   MangasPage,
@@ -10,6 +11,7 @@ import type {
   ExtensionManifest,
   FilterState,
 } from "../types";
+import type { PrefChange } from "../prefs-bridge";
 
 /**
  * Async Tachiyomi source interface
@@ -34,15 +36,20 @@ export interface AsyncTachiyomiSource {
   searchMangaWithFilters(page: number, query: string, filterStateJson: string): Promise<MangasPage>;
 
   // Content methods
-  getMangaDetails(mangaUrl: string): Promise<Manga | null>;
-  getChapterList(mangaUrl: string): Promise<Chapter[]>;
+  /**
+   * Pass the library row (at least url and title) when you have it: the app does, and sources read
+   * title, cover and author off it. A bare url still works.
+   */
+  getMangaDetails(manga: string | MangaInput): Promise<Manga | null>;
+  getChapterList(manga: string | MangaInput): Promise<Chapter[]>;
   getPageList(chapterUrl: string): Promise<Page[]>;
   fetchImage(pageUrl: string, pageImageUrl: string): Promise<string>;
   getHeaders(): Promise<Record<string, string>>;
 
   // Preferences methods
   initPreferences(prefsName: string, values: Record<string, unknown>): Promise<void>;
-  flushPrefChanges(): Promise<Array<{ name: string; key: string; value: unknown }>>;
+  /** Writes sources made since the last call; a null value means the key was removed */
+  flushPrefChanges(): Promise<PrefChange[]>;
   getSettingsSchema(): Promise<string | null>;
 
   /** Terminate the source and release resources */

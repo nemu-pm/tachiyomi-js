@@ -30,13 +30,19 @@
  * @packageDocumentation
  */
 
-// Register browser image codec on import
-import { registerImageCodec } from './image-codec.browser';
+// The shim reaches the image codec and SharedPreferences through globals; install both on import.
+import { registerImageCodec } from './image-codec';
+import { installPrefsBridge } from './prefs-bridge';
 registerImageCodec();
+installPrefsBridge();
+
+export { initPreferences, flushPrefChanges, getAllPreferences, type PrefChange } from './prefs-bridge';
+export { decodeImage, encodeImage, type DecodedImage } from './image-codec';
 
 // Types
 export type {
   Manga,
+  MangaInput,
   Chapter,
   Page,
   MangasPage,
