@@ -30,6 +30,19 @@ class Rect(
 
     fun isEmpty(): Boolean = left >= right || top >= bottom
 
+    fun centerX(): Int = (left + right) shr 1
+    fun centerY(): Int = (top + bottom) shr 1
+    fun exactCenterX(): Float = (left + right) * 0.5f
+    fun exactCenterY(): Float = (top + bottom) * 0.5f
+
+    fun offset(dx: Int, dy: Int) {
+        left += dx; top += dy; right += dx; bottom += dy
+    }
+
+    fun offsetTo(newLeft: Int, newTop: Int) {
+        right += newLeft - left; bottom += newTop - top; left = newLeft; top = newTop
+    }
+
     fun contains(x: Int, y: Int): Boolean {
         return x >= left && x < right && y >= top && y < bottom
     }
