@@ -12,9 +12,23 @@ class Locale private constructor(
     fun getCountry(): String = country
     /** Kotlin property access (`locale.language`) does not synthesise from `getLanguage()` on JS. */
     val languageTag: String get() = toLanguageTag()
-    val displayLanguage: String get() = language
+    val displayLanguage: String get() = getDisplayLanguage(ENGLISH)
     fun getVariant(): String = variant
-    
+
+    fun getDisplayLanguage(): String = getDisplayLanguage(ENGLISH)
+
+    /** The language name in [inLocale] via `Intl.DisplayNames`; the raw code where the host has no ICU data. */
+    fun getDisplayLanguage(inLocale: Locale): String {
+        if (language.isEmpty()) return ""
+        val lang = language
+        val tag = inLocale.toLanguageTag()
+        return try {
+            js("new Intl.DisplayNames([tag], { type: 'language' }).of(lang)") as? String ?: lang
+        } catch (e: Throwable) {
+            lang
+        }
+    }
+
     fun getDisplayName(locale: Locale): String {
         // Simple display name - in production this would use Intl API
         return when {

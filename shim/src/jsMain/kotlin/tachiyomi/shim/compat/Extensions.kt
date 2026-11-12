@@ -31,6 +31,9 @@ val <T : Any> T.javaClass: JClass<T> get() = JClass.of(this::class) as JClass<T>
  */
 fun String.format(vararg args: Any?): String = formatWith(args)
 fun String.format(locale: Locale?, vararg args: Any?): String = formatWith(args)
+/** The Java static form, `String.format(Locale.ROOT, "%.1f", x)`. */
+fun String.Companion.format(format: String, vararg args: Any?): String = format.formatWith(args)
+fun String.Companion.format(locale: Locale?, format: String, vararg args: Any?): String = format.formatWith(args)
 
 private val FORMAT_SPEC = Regex("""%(?:(\d+)\$)?([-+0, #]*)(\d+)?(?:\.(\d+))?([sdxXfeEcbn%])""")
 
@@ -98,3 +101,13 @@ fun String(bytes: ByteArray, offset: Int, length: Int): String = bytes.decodeToS
 fun String(bytes: ByteArray, offset: Int, length: Int, charset: Charset): String = bytes.copyOfRange(offset, offset + length).toString(charset)
 fun String(chars: CharArray): String = chars.concatToString()
 fun String(chars: CharArray, offset: Int, length: Int): String = chars.concatToString(offset, offset + length)
+
+/** `kotlin.synchronized` is JVM-only; the runtime is single-threaded, so the lock is irrelevant. */
+inline fun <R> synchronized(lock: Any, block: () -> R): R = block()
+
+/** JVM `toSortedMap` returns a `SortedMap`; a key-ordered `LinkedHashMap` serves the corpus's reads. */
+fun <K : Comparable<K>, V> Map<out K, V>.toSortedMap(): MutableMap<K, V> =
+    entries.sortedBy { it.key }.associateTo(LinkedHashMap()) { it.key to it.value }
+
+fun <K, V> Map<out K, V>.toSortedMap(comparator: Comparator<in K>): MutableMap<K, V> =
+    entries.sortedWith(compareBy(comparator) { it.key }).associateTo(LinkedHashMap()) { it.key to it.value }
