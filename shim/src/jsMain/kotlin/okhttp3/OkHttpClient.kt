@@ -120,6 +120,9 @@ class OkHttpClient private constructor(
         fun cache(cache: Cache?): Builder = apply { this.cache = cache }
         fun dispatcher(dispatcher: Dispatcher): Builder = apply { this.dispatcher = dispatcher }
         fun dns(dns: Dns): Builder = this
+        /** TLS is the host's business; trust-all configurations compile and change nothing. */
+        fun sslSocketFactory(sslSocketFactory: javax.net.ssl.SSLSocketFactory, trustManager: javax.net.ssl.X509TrustManager): Builder = this
+        fun hostnameVerifier(hostnameVerifier: javax.net.ssl.HostnameVerifier): Builder = this
         fun followRedirects(followRedirects: Boolean): Builder = apply { this.followRedirects = followRedirects }
         fun followSslRedirects(followProtocolRedirects: Boolean): Builder = this
         fun retryOnConnectionFailure(retryOnConnectionFailure: Boolean): Builder = this
