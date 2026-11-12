@@ -35,6 +35,7 @@ VERBATIM=(
   utils/Binary.kt
   utils/Collections.kt
   utils/Context.kt
+  utils/Date.kt
   utils/GraphQL.kt
   utils/Inflater.kt
   utils/JsonElement.kt
@@ -52,7 +53,6 @@ PORTED=(
   source/CustomUrlPreferences.kt
   source/KeiSource.kt
   utils/Crypto.kt
-  utils/Date.kt
   utils/Json.kt
   utils/Jsoup.kt
   utils/Markdown.kt

@@ -1,227 +1,234 @@
 package java.text
 
+import java.time.DateTimeException
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
+import java.time.format.DateTimeParseException
+import java.time.format.SignStyle
+import java.time.format.TextStyle
+import java.time.temporal.ChronoField
+import java.time.temporal.TemporalField
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/**
- * ParseException for date parsing failures
- */
-class ParseException(
-    message: String,
-    val errorOffset: Int = 0
-) : Exception(message)
+class ParseException(message: String, val errorOffset: Int = 0) : Exception(message) {
+    fun getErrorOffset(): Int = errorOffset
+}
+
+class ParsePosition(var index: Int) {
+    var errorIndex: Int = -1
+
+    fun getIndex(): Int = index
+    fun setIndex(index: Int) {
+        this.index = index
+    }
+
+    fun getErrorIndex(): Int = errorIndex
+    fun setErrorIndex(errorIndex: Int) {
+        this.errorIndex = errorIndex
+    }
+
+    override fun toString(): String = "java.text.ParsePosition[index=$index,errorIndex=$errorIndex]"
+}
+
+abstract class DateFormat {
+    var timeZone: TimeZone = TimeZone.getDefault()
+    var isLenient: Boolean = true
+
+    /** A calendar in this format's zone; extensions read the zone or the current time off it. */
+    val calendar: Calendar get() = Calendar.getInstance(timeZone)
+
+    fun getTimeZone(): TimeZone = timeZone
+    fun setTimeZone(zone: TimeZone) {
+        timeZone = zone
+    }
+
+    fun setLenient(lenient: Boolean) {
+        isLenient = lenient
+    }
+
+    fun getCalendar(): Calendar = calendar
+
+    /** Parses from [pos]; on failure returns null with [ParsePosition.errorIndex] set. Trailing text is ignored. */
+    abstract fun parse(source: String, pos: ParsePosition): Date?
+
+    abstract fun format(date: Date): String
+
+    fun parse(source: String): Date {
+        val pos = ParsePosition(0)
+        return parse(source, pos) ?: throw ParseException("Unparseable date: \"$source\"", pos.errorIndex)
+    }
+
+    fun format(date: Long): String = format(Date(date))
+
+    companion object {
+        const val FULL = 0
+        const val LONG = 1
+        const val MEDIUM = 2
+        const val SHORT = 3
+        const val DEFAULT = MEDIUM
+    }
+}
 
 /**
- * Simplified SimpleDateFormat implementation for parsing dates.
- * Supports common patterns used in manga extensions.
+ * SimpleDateFormat on the java.time formatter engine in lenient mode: digits of any count, blanks
+ * skipped before fields, out-of-range values rolled over and missing fields taken from the epoch.
+ *
+ * Differences from the JVM: `w`, `W` and `F` are aligned (every week starts on the 1st) rather than
+ * locale weeks; `isLenient = false` rejects out-of-range fields but still ignores trailing text in
+ * [parse]; two-digit years resolve to the 80 years before and 20 after today.
  */
-class SimpleDateFormat(
-    private val pattern: String,
-    private val locale: Locale = Locale.getDefault()
-) {
-    var timeZone: TimeZone = TimeZone.getDefault()
-    
-    fun parse(source: String): Date? {
-        return try {
-            // Try ISO 8601 format parsing
-            parseIso8601(source) ?: parseCustomPattern(source)
-        } catch (e: Exception) {
-            null
+open class SimpleDateFormat(pattern: String, private val locale: Locale = Locale.getDefault()) : DateFormat() {
+    private var pattern: String = pattern
+    private var formatter: DateTimeFormatter = build(pattern, locale)
+
+    fun toPattern(): String = pattern
+
+    fun applyPattern(pattern: String) {
+        this.pattern = pattern
+        formatter = build(pattern, locale)
+    }
+
+    fun set2DigitYearStart(startDate: Date) {
+        // Two-digit years always resolve within 80 years before today, like the JVM default.
+    }
+
+    fun get2DigitYearStart(): Date = Date(Date.currentTimeMillis() - 80L * 365 * 24 * 3600 * 1000)
+
+    override fun parse(source: String, pos: ParsePosition): Date? {
+        val start = pos.index
+        if (start < 0 || start > source.length) {
+            pos.errorIndex = start
+            return null
         }
-    }
-    
-    fun format(date: Date): String {
-        // Simplified formatting - returns ISO format
-        return formatIso8601(date.time)
-    }
-    
-    private fun parseIso8601(source: String): Date? {
-        // Handle ISO 8601 formats like "2024-01-15T10:30:00+000"
-        val isoRegex = Regex("""(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})([+\-]\d{3,4})?""")
-        val match = isoRegex.find(source) ?: return null
-        
-        val (year, month, day, hour, minute, second) = match.destructured
-        
-        // Calculate milliseconds from epoch
-        val yearNum = year.toInt()
-        val monthNum = month.toInt() - 1  // 0-indexed month
-        val dayNum = day.toInt()
-        val hourNum = hour.toInt()
-        val minuteNum = minute.toInt()
-        val secondNum = second.toInt()
-        
-        // Simple epoch calculation (not accounting for all edge cases)
-        val daysFromEpoch = calculateDaysFromEpoch(yearNum, monthNum + 1, dayNum)
-        val millisFromMidnight = ((hourNum * 60L + minuteNum) * 60L + secondNum) * 1000L
-        val millis = daysFromEpoch * 86400000L + millisFromMidnight
-        
+        val parsed = try {
+            formatter.withZone(timeZone.toZoneId()).parseAt(source, start, requireAll = false)
+        } catch (e: DateTimeParseException) {
+            pos.errorIndex = e.getErrorIndex()
+            return null
+        }
+        if (!isLenient) {
+            for ((field, value) in parsed.fields) {
+                if (field is ChronoField && runCatching { field.checkValidValue(value) }.isFailure) {
+                    pos.errorIndex = start
+                    return null
+                }
+            }
+        }
+        val millis = try {
+            parsed.getLong(ChronoField.INSTANT_SECONDS) * 1000 + parsed.getLong(ChronoField.NANO_OF_SECOND) / 1_000_000
+        } catch (e: DateTimeException) {
+            pos.errorIndex = start
+            return null
+        }
+        pos.index = parsed.endIndex
         return Date(millis)
     }
-    
-    private fun parseCustomPattern(source: String): Date? {
-        // Try common patterns
-        // "MMMM d yyyy" -> "January 15 2024"
-        val monthNames = listOf(
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december"
-        )
-        
-        // Pattern: "MMMM d yyyy" or "MMMM d, yyyy"
-        val longMonthRegex = Regex("""(\w+)\s+(\d{1,2}),?\s+(\d{4})""", RegexOption.IGNORE_CASE)
-        longMonthRegex.find(source)?.let { match ->
-            val (monthStr, day, year) = match.destructured
-            val month = monthNames.indexOfFirst { it.equals(monthStr, ignoreCase = true) }
-            if (month >= 0) {
-                val daysFromEpoch = calculateDaysFromEpoch(year.toInt(), month + 1, day.toInt())
-                return Date(daysFromEpoch * 86400000L)
-            }
-        }
-        
-        // Pattern: "yyyy-MM-dd" or "yyyy-MM-dd HH:mm:ss"
-        val isoDateRegex = Regex("""(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?""")
-        isoDateRegex.find(source)?.let { match ->
-            val year = match.groupValues[1].toInt()
-            val month = match.groupValues[2].toInt()
-            val day = match.groupValues[3].toInt()
-            val hour = match.groupValues.getOrNull(4)?.toIntOrNull() ?: 0
-            val minute = match.groupValues.getOrNull(5)?.toIntOrNull() ?: 0
-            val second = match.groupValues.getOrNull(6)?.toIntOrNull() ?: 0
-            val daysFromEpoch = calculateDaysFromEpoch(year, month, day)
-            val timeMillis = ((hour * 60L + minute) * 60L + second) * 1000L
-            return Date(daysFromEpoch * 86400000L + timeMillis)
-        }
-        
-        // Pattern: "MM/dd/yyyy"
-        val usDateRegex = Regex("""(\d{1,2})/(\d{1,2})/(\d{4})""")
-        usDateRegex.find(source)?.let { match ->
-            val (month, day, year) = match.destructured
-            val daysFromEpoch = calculateDaysFromEpoch(year.toInt(), month.toInt(), day.toInt())
-            return Date(daysFromEpoch * 86400000L)
-        }
-        
-        // Japanese patterns: "yyyy年MM月dd日", "yyyy年M月d日H時"
-        val jpDateRegex = Regex("""(\d{4})年(\d{1,2})月(\d{1,2})日(?:(\d{1,2})時)?""")
-        jpDateRegex.find(source)?.let { match ->
-            val year = match.groupValues[1].toInt()
-            val month = match.groupValues[2].toInt()
-            val day = match.groupValues[3].toInt()
-            val hour = match.groupValues.getOrNull(4)?.toIntOrNull() ?: 0
-            val daysFromEpoch = calculateDaysFromEpoch(year, month, day)
-            return Date(daysFromEpoch * 86400000L + hour * 3600000L)
-        }
-        
-        // Pattern: "yyyy/M/d"
-        val slashDateRegex = Regex("""(\d{4})/(\d{1,2})/(\d{1,2})""")
-        slashDateRegex.find(source)?.let { match ->
-            val (year, month, day) = match.destructured
-            val daysFromEpoch = calculateDaysFromEpoch(year.toInt(), month.toInt(), day.toInt())
-            return Date(daysFromEpoch * 86400000L)
-        }
-        
-        // Pattern: "yyyy.MM.dd"
-        val dotDateRegex = Regex("""(\d{4})\.(\d{1,2})\.(\d{1,2})""")
-        dotDateRegex.find(source)?.let { match ->
-            val (year, month, day) = match.destructured
-            val daysFromEpoch = calculateDaysFromEpoch(year.toInt(), month.toInt(), day.toInt())
-            return Date(daysFromEpoch * 86400000L)
-        }
-        
-        // Pattern: "M月 d, yyyy" (ComicTop style with 月 character)
-        val jpMonthRegex = Regex("""(\d{1,2})月\s*(\d{1,2}),?\s*(\d{4})""")
-        jpMonthRegex.find(source)?.let { match ->
-            val (month, day, year) = match.destructured
-            val daysFromEpoch = calculateDaysFromEpoch(year.toInt(), month.toInt(), day.toInt())
-            return Date(daysFromEpoch * 86400000L)
-        }
-        
-        return null
-    }
-    
-    private fun calculateDaysFromEpoch(year: Int, month: Int, day: Int): Long {
-        // Calculate days from Unix epoch (1970-01-01)
-        var days = 0L
-        
-        // Add years
-        for (y in 1970 until year) {
-            days += if (isLeapYear(y)) 366 else 365
-        }
-        
-        // Subtract years if before epoch
-        for (y in year until 1970) {
-            days -= if (isLeapYear(y)) 366 else 365
-        }
-        
-        // Add months
-        val daysInMonth = intArrayOf(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-        for (m in 1 until month) {
-            days += daysInMonth[m - 1]
-            if (m == 2 && isLeapYear(year)) days++
-        }
-        
-        // Add days
-        days += day - 1
-        
-        return days
-    }
-    
-    private fun isLeapYear(year: Int): Boolean {
-        return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
-    
-    private fun formatIso8601(millis: Long): String {
-        // Convert millis back to date components
-        var remaining = millis / 1000  // seconds
-        val seconds = (remaining % 60).toInt()
-        remaining /= 60
-        val minutes = (remaining % 60).toInt()
-        remaining /= 60
-        val hours = (remaining % 24).toInt()
-        remaining /= 24
-        
-        // Calculate year/month/day from days since epoch
-        var days = remaining.toInt()
-        var year = 1970
-        while (days >= (if (isLeapYear(year)) 366 else 365)) {
-            days -= if (isLeapYear(year)) 366 else 365
-            year++
-        }
-        while (days < 0) {
-            year--
-            days += if (isLeapYear(year)) 366 else 365
-        }
-        
-        val daysInMonth = intArrayOf(31, if (isLeapYear(year)) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-        var month = 0
-        while (days >= daysInMonth[month]) {
-            days -= daysInMonth[month]
-            month++
-        }
-        
-        return "%04d-%02d-%02dT%02d:%02d:%02d+000".format(year, month + 1, days + 1, hours, minutes, seconds)
-    }
-}
 
-// Helper function for string formatting (not in Kotlin/Wasm by default)
-private fun String.format(vararg args: Any?): String {
-    var result = this
-    var index = 0
-    val regex = Regex("""%(\d+\$)?[-#+ 0,(]*(\d+)?(\.\d+)?[dfsxXeEgGaAbBhHnoct%]""")
-    regex.findAll(this).forEach { match ->
-        if (match.value != "%%") {
-            val arg = args.getOrNull(index++) ?: ""
-            val replacement = when {
-                match.value.endsWith("d") -> (arg as? Number)?.toLong()?.toString() ?: arg.toString()
-                match.value.endsWith("s") -> arg.toString()
-                match.value.contains(Regex("""\d+d""")) -> {
-                    val width = Regex("""(\d+)d""").find(match.value)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    (arg as? Number)?.toLong()?.toString()?.padStart(width, '0') ?: arg.toString()
+    override fun format(date: Date): String = formatter.withZone(timeZone.toZoneId()).format(Instant.ofEpochMilli(date.time))
+
+    fun clone(): SimpleDateFormat = SimpleDateFormat(pattern, locale).also {
+        it.timeZone = timeZone
+        it.isLenient = isLenient
+    }
+
+    override fun equals(other: Any?): Boolean = other is SimpleDateFormat && other.pattern == pattern && other.locale == locale && other.timeZone == timeZone
+    override fun hashCode(): Int = pattern.hashCode() xor locale.hashCode()
+    override fun toString(): String = "SimpleDateFormat($pattern)"
+
+    private companion object {
+        fun build(pattern: String, locale: Locale): DateTimeFormatter {
+            val b = DateTimeFormatterBuilder()
+            var pos = 0
+            while (pos < pattern.length) {
+                val c = pattern[pos]
+                when {
+                    c == '\'' -> {
+                        if (pos + 1 < pattern.length && pattern[pos + 1] == '\'') {
+                            b.appendLiteral('\'')
+                            pos += 2
+                        } else {
+                            val sb = StringBuilder()
+                            pos++
+                            var closed = false
+                            while (pos < pattern.length) {
+                                if (pattern[pos] == '\'') {
+                                    if (pos + 1 < pattern.length && pattern[pos + 1] == '\'') {
+                                        sb.append('\'')
+                                        pos += 2
+                                    } else {
+                                        pos++
+                                        closed = true
+                                        break
+                                    }
+                                } else {
+                                    sb.append(pattern[pos])
+                                    pos++
+                                }
+                            }
+                            if (!closed) throw IllegalArgumentException("Unterminated quote")
+                            b.appendLiteral(sb.toString())
+                        }
+                    }
+                    c in 'A'..'Z' || c in 'a'..'z' -> {
+                        val start = pos
+                        while (pos < pattern.length && pattern[pos] == c) pos++
+                        letter(b, c, pos - start)
+                    }
+                    else -> {
+                        b.appendLiteral(c)
+                        pos++
+                    }
                 }
-                else -> arg.toString()
             }
-            result = result.replaceFirst(match.value, replacement)
+            return b.toFormatter(locale).withLenient(true)
+        }
+
+        private fun number(b: DateTimeFormatterBuilder, field: TemporalField, count: Int) {
+            when (count) {
+                1 -> b.appendValue(field)
+                2 -> b.appendValue(field, 2)
+                else -> b.appendValue(field, count, 19, SignStyle.NOT_NEGATIVE)
+            }
+        }
+
+        private fun letter(b: DateTimeFormatterBuilder, c: Char, count: Int) {
+            when (c) {
+                'G' -> b.appendText(ChronoField.ERA, TextStyle.SHORT)
+                'y', 'Y' -> if (count == 2) b.appendValueReduced(ChronoField.YEAR, 2, 2, 2000) else b.appendValue(ChronoField.YEAR, count, 19, SignStyle.NORMAL)
+                'M', 'L' -> when {
+                    count <= 2 -> number(b, ChronoField.MONTH_OF_YEAR, count)
+                    count == 3 -> b.appendText(ChronoField.MONTH_OF_YEAR, if (c == 'L') TextStyle.SHORT_STANDALONE else TextStyle.SHORT)
+                    else -> b.appendText(ChronoField.MONTH_OF_YEAR, if (c == 'L') TextStyle.FULL_STANDALONE else TextStyle.FULL)
+                }
+                'w' -> number(b, ChronoField.ALIGNED_WEEK_OF_YEAR, count)
+                'W' -> number(b, ChronoField.ALIGNED_WEEK_OF_MONTH, count)
+                'D' -> number(b, ChronoField.DAY_OF_YEAR, count)
+                'd' -> number(b, ChronoField.DAY_OF_MONTH, count)
+                'F' -> number(b, ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH, count)
+                'E' -> b.appendText(ChronoField.DAY_OF_WEEK, if (count < 4) TextStyle.SHORT else TextStyle.FULL)
+                'u' -> number(b, ChronoField.DAY_OF_WEEK, count)
+                'a' -> b.appendText(ChronoField.AMPM_OF_DAY, TextStyle.SHORT)
+                'H' -> number(b, ChronoField.HOUR_OF_DAY, count)
+                'k' -> number(b, ChronoField.CLOCK_HOUR_OF_DAY, count)
+                'K' -> number(b, ChronoField.HOUR_OF_AMPM, count)
+                'h' -> number(b, ChronoField.CLOCK_HOUR_OF_AMPM, count)
+                'm' -> number(b, ChronoField.MINUTE_OF_HOUR, count)
+                's' -> number(b, ChronoField.SECOND_OF_MINUTE, count)
+                'S' -> number(b, ChronoField.MILLI_OF_SECOND, count)
+                'z' -> b.appendZoneText(if (count < 4) TextStyle.SHORT else TextStyle.FULL)
+                'Z' -> b.appendOffset("+HHMM", "+0000")
+                'X' -> when (count) {
+                    1 -> b.appendOffset("+HH", "Z")
+                    2 -> b.appendOffset("+HHMM", "Z")
+                    3 -> b.appendOffset("+HH:MM", "Z")
+                    else -> throw IllegalArgumentException("invalid ISO 8601 format: length=$count")
+                }
+                else -> throw IllegalArgumentException("Illegal pattern character '$c'")
+            }
         }
     }
-    return result
 }
-
