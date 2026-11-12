@@ -105,6 +105,31 @@ fun String(chars: CharArray, offset: Int, length: Int): String = chars.concatToS
 /** `kotlin.synchronized` is JVM-only; the runtime is single-threaded, so the lock is irrelevant. */
 inline fun <R> synchronized(lock: Any, block: () -> R): R = block()
 
+/** `kotlin.assert` is JVM-only; here it always checks, as a JVM with `-ea` would. */
+fun assert(value: Boolean) {
+    if (!value) throw AssertionError("Assertion failed")
+}
+
+inline fun assert(value: Boolean, lazyMessage: () -> Any) {
+    if (!value) throw AssertionError(lazyMessage())
+}
+
+/** `java.lang.String.CASE_INSENSITIVE_ORDER`, imported by the preprocessor in place of the JVM import. */
+val CASE_INSENSITIVE_ORDER: Comparator<String> get() = String.CASE_INSENSITIVE_ORDER
+
+/** `Map.getOrDefault` is a JVM-only member. */
+fun <K, V> Map<out K, V>.getOrDefault(key: K, defaultValue: V): V {
+    @Suppress("UNCHECKED_CAST")
+    return if (containsKey(key)) get(key) as V else defaultValue
+}
+
+fun StringBuilder.appendCodePoint(codePoint: Int): StringBuilder {
+    if (codePoint < 0x10000) return append(codePoint.toChar())
+    val offset = codePoint - 0x10000
+    append(((offset shr 10) + 0xD800).toChar())
+    return append(((offset and 0x3FF) + 0xDC00).toChar())
+}
+
 /** JVM `toSortedMap` returns a `SortedMap`; a key-ordered `LinkedHashMap` serves the corpus's reads. */
 fun <K : Comparable<K>, V> Map<out K, V>.toSortedMap(): MutableMap<K, V> =
     entries.sortedBy { it.key }.associateTo(LinkedHashMap()) { it.key to it.value }
