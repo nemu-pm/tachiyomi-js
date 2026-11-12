@@ -54,7 +54,8 @@ fun ByteArray.toString(charset: Charset): String = when (charset.name.uppercase(
     else -> decodeToString()
 }
 
-fun String.toByteArray(charset: Charset): ByteArray = when (charset.name.uppercase()) {
+// The JVM stdlib defaults to UTF-8; `password.toByteArray()` is everywhere in the corpus.
+fun String.toByteArray(charset: Charset = Charsets.UTF_8): ByteArray = when (charset.name.uppercase()) {
     "ISO-8859-1" -> ByteArray(length) { this[it].code.toByte() }
     "US-ASCII" -> ByteArray(length) { (this[it].code and 0x7F).toByte() }
     else -> encodeToByteArray()
