@@ -23,6 +23,8 @@ open class Node(internal val nodeImpl: KsoupNode) {
 
     open fun absUrl(attributeKey: String): String = nodeImpl.absUrl(attributeKey)
 
+    fun baseUri(): String = nodeImpl.baseUri()
+
     fun childNodes(): List<Node> = nodeImpl.childNodes().map(::wrapNode)
 
     fun childNodeSize(): Int = nodeImpl.childNodeSize()
@@ -63,6 +65,17 @@ open class Node(internal val nodeImpl: KsoupNode) {
 
     fun replaceWith(replacement: Node) {
         nodeImpl.replaceWith(replacement.nodeImpl)
+    }
+
+    /** Insert a node as the previous sibling of this one (moving it from its current parent). */
+    fun before(node: Node): Node {
+        nodeImpl.before(node.nodeImpl)
+        return this
+    }
+
+    fun after(node: Node): Node {
+        nodeImpl.after(node.nodeImpl)
+        return this
     }
 
     override fun toString(): String = nodeImpl.toString()

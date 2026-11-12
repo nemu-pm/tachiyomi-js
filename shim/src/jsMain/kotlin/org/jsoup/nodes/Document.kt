@@ -18,7 +18,7 @@ class Document(implDoc: KsoupDocument) : Element(implDoc) {
     /**
      * Get the document's head element.
      */
-    fun head(): Element? = doc.head()?.let { Element(it) }
+    fun head(): Element = Element(doc.head() ?: doc.createElement("head").also { doc.prependChild(it) })
 
     /**
      * Get the document's title.
@@ -111,6 +111,11 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
     fun wholeText(): String = impl.wholeText()
 
     /**
+     * Get the whole, unnormalised text of this element's own text nodes.
+     */
+    fun wholeOwnText(): String = impl.wholeOwnText()
+
+    /**
      * Whether this element, or any child, has non-blank text.
      */
     fun hasText(): Boolean = impl.hasText()
@@ -122,6 +127,16 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
         impl.appendChild(child.nodeImpl)
         return this
     }
+
+    /**
+     * Insert nodes as children at the index (moving them from their current parents).
+     */
+    fun insertChildren(index: Int, children: Collection<Node>): Element {
+        impl.insertChildren(index, children.map { it.nodeImpl })
+        return this
+    }
+
+    fun insertChildren(index: Int, vararg children: Node): Element = insertChildren(index, children.toList())
 
     /**
      * Append text as a text node.
