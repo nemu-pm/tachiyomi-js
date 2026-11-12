@@ -97,8 +97,8 @@ private fun error(e: Throwable): String {
     }.toString().also { logBuffer.clear() }
 }
 
-// Assets first: a source may read i18n messages or scripts while constructing.
-private val instance: Any = run { registerAssets(); Generated() }
+// RegExp compat and assets first: a source may build JVM-dialect regexes or read i18n messages while constructing.
+private val instance: Any = run { tachiyomi.shim.RegexCompat.install(); registerAssets(); Generated() }
 private val sources: List<Source> = when (instance) {
     is SourceFactory -> instance.createSources()
     is Source -> listOf(instance)
