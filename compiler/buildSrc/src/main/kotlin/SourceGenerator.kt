@@ -63,16 +63,41 @@ object SourceGenerator {
     }
 
     private fun findClass(sourceDir: File, name: String): ClassDecl? {
-        val decl = Regex("""(?:^|\n)((?:@\w+(?:\([^)]*\))?\s*)*(?:(?:public|internal|private|abstract|open|sealed)\s+)*class\s+$name\b[^{]*)\{""")
+        val decl = Regex("""(?:^|\n)((?:@\w+(?:\([^)]*\))?\s*)*(?:(?:public|internal|private|abstract|open|sealed)\s+)*class\s+$name\b)""")
         for (file in sourceDir.walk().filter { it.isFile && it.extension == "kt" }) {
             val text = file.readText()
             val m = decl.find(text) ?: continue
-            val open = m.range.last
-            val close = KtsBlock.matchBrace(text, open) ?: continue
+            val start = m.groups[1]!!.range.first
+            val end = headerEnd(text, m.range.last + 1)
             val pkg = Regex("""^package\s+([\w.]+)""", RegexOption.MULTILINE).find(text)?.groupValues?.get(1) ?: ""
-            return ClassDecl(file, pkg, name, m.groupValues[1], text.substring(open + 1, close))
+            // `class Foo : Theme("…")` with no body is common for theme extensions.
+            val body = if (end < text.length && text[end] == '{') {
+                val close = KtsBlock.matchBrace(text, end) ?: continue
+                text.substring(end + 1, close)
+            } else ""
+            return ClassDecl(file, pkg, name, text.substring(start, end), body)
         }
         return null
+    }
+
+    /** Index of the `{` opening the class body, or of the newline that ends a body-less declaration. */
+    private fun headerEnd(text: String, from: Int): Int {
+        var depth = 0
+        var i = from
+        while (i < text.length) {
+            when (text[i]) {
+                '(', '<' -> depth++
+                ')', '>' -> depth--
+                '{' -> if (depth == 0) return i
+                '\n' -> if (depth == 0) {
+                    val prev = text.substring(from, i).trimEnd().lastOrNull()
+                    val next = text.substring(i + 1).trimStart().firstOrNull()
+                    if (prev != ':' && prev != ',' && next != ':' && next != ',' && next != '{') return i
+                }
+            }
+            i++
+        }
+        return text.length
     }
 
     /** Locates the single `@Source`-annotated class under [extensionSourceDir] and walks its superclasses in [allSourcesDir]. */
