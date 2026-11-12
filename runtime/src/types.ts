@@ -28,6 +28,8 @@ export interface Manga {
   initialized: boolean;
 }
 
+/** What a details or chapter fetch takes: the library row if you have it, else just the url */
+
 export interface Chapter {
   url: string;
   name: string;
@@ -82,53 +84,54 @@ export interface Author {
 }
 
 // ============================================================================
-// Filter Types (match Kotlin/JS output)
+// Filter Types (the wire format MainKtTemplate.serializeFilter emits: lowercase
+// `type`, a group's children under `filters`)
 // ============================================================================
 
 /** Header filter - section label, not interactive */
 export interface FilterHeader {
-  type: 'Header';
+  type: 'header';
   name: string;
 }
 
 /** Separator filter - visual divider */
 export interface FilterSeparator {
-  type: 'Separator';
+  type: 'separator';
   name: string; // Usually empty
 }
 
 /** Text filter - free-form input */
 export interface FilterText {
-  type: 'Text';
+  type: 'text';
   name: string;
   state: string;
 }
 
 /** Checkbox filter - boolean toggle */
 export interface FilterCheckBox {
-  type: 'CheckBox';
+  type: 'checkbox';
   name: string;
   state: boolean;
 }
 
 /** TriState filter - ignore/include/exclude */
 export interface FilterTriState {
-  type: 'TriState';
+  type: 'tristate';
   name: string;
   state: number; // 0=ignore, 1=include, 2=exclude
 }
 
-/** Sort filter - sorting options */
+/** Sort filter - sorting options; `state` is absent when the source has no default selection */
 export interface FilterSort {
-  type: 'Sort';
+  type: 'sort';
   name: string;
-  state: { index: number; ascending: boolean } | null;
+  state?: { index: number; ascending: boolean } | null;
   values: string[];
 }
 
 /** Select filter - dropdown/single select */
 export interface FilterSelect {
-  type: 'Select';
+  type: 'select';
   name: string;
   state: number;
   values: string[];
@@ -136,9 +139,9 @@ export interface FilterSelect {
 
 /** Group filter - container for child filters */
 export interface FilterGroup {
-  type: 'Group';
+  type: 'group';
   name: string;
-  state: FilterState[]; // Nested filters
+  filters: FilterState[]; // Nested filters
 }
 
 /** Union of all filter types */
@@ -166,23 +169,24 @@ export interface FilterStateUpdate {
 /** Convert a single filter to its state update format */
 export function filterToStateUpdate(filter: FilterState, index: number): FilterStateUpdate | null {
   switch (filter.type) {
-    case 'CheckBox':
+    case 'checkbox':
       return { index, state: filter.state };
-    case 'TriState':
+    case 'tristate':
       return { index, state: filter.state };
-    case 'Text':
+    case 'text':
       return filter.state ? { index, state: filter.state } : null;
-    case 'Select':
+    case 'select':
       return { index, state: filter.state };
-    case 'Sort':
+    case 'sort':
       return filter.state ? { index, state: filter.state } : null;
-    case 'Group':
-      const childUpdates = filter.state
+    case 'group': {
+      const childUpdates = filter.filters
         .map((f, i) => filterToStateUpdate(f, i))
         .filter((u): u is FilterStateUpdate => u !== null);
       return childUpdates.length > 0 ? { index, filters: childUpdates } : null;
+    }
     default:
-      return null; // Header, Separator have no state
+      return null; // header, separator have no state
   }
 }
 
