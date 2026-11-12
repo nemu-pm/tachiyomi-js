@@ -57,6 +57,10 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
      */
     open fun selectFirst(cssQuery: String): Element? = impl.selectFirst(cssQuery)?.let { Element(it) }
 
+    fun select(evaluator: org.jsoup.select.Evaluator): Elements = select(evaluator.cssQuery)
+
+    fun selectFirst(evaluator: org.jsoup.select.Evaluator): Element? = selectFirst(evaluator.cssQuery)
+
     /**
      * Get an attribute value by key.
      */
@@ -74,6 +78,9 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
      * Check if this element has an attribute.
      */
     override fun hasAttr(attributeKey: String): Boolean = impl.hasAttr(attributeKey)
+
+    /** All attributes, iterable as key/value pairs. */
+    fun attributes(): Attributes = Attributes(impl.attributes())
 
     /**
      * Remove an attribute from this element.
@@ -189,6 +196,11 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
     fun classNames(): Set<String> = impl.classNames()
 
     /**
+     * The literal class attribute.
+     */
+    fun className(): String = impl.className()
+
+    /**
      * Check if this element has the specified class.
      */
     fun hasClass(className: String): Boolean = impl.hasClass(className)
@@ -284,7 +296,7 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
     /**
      * Get the next sibling element.
      */
-    fun nextElementSibling(): Element? = impl.nextElementSibling()?.let { Element(it) }
+    override fun nextElementSibling(): Element? = impl.nextElementSibling()?.let { Element(it) }
 
     /**
      * Get all next sibling elements.
@@ -294,7 +306,7 @@ open class Element(internal val impl: KsoupElement) : Node(impl) {
     /**
      * Get the previous sibling element.
      */
-    fun previousElementSibling(): Element? = impl.previousElementSibling()?.let { Element(it) }
+    override fun previousElementSibling(): Element? = impl.previousElementSibling()?.let { Element(it) }
 
     /**
      * Get all previous sibling elements.
@@ -537,6 +549,10 @@ class Elements internal constructor(private val impl: KsoupElements) : AbstractL
      * First element matching a CSS selector within these elements, or null (jsoup 1.19).
      */
     fun selectFirst(cssQuery: String): Element? = impl.select(cssQuery).firstOrNull()?.let { Element(it) }
+
+    fun select(evaluator: org.jsoup.select.Evaluator): Elements = select(evaluator.cssQuery)
+
+    fun selectFirst(evaluator: org.jsoup.select.Evaluator): Element? = selectFirst(evaluator.cssQuery)
 
     /**
      * Filter elements that do not match the selector.

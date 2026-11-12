@@ -37,6 +37,19 @@ open class Node(internal val nodeImpl: KsoupNode) {
 
     fun siblingIndex(): Int = nodeImpl.siblingIndex()
 
+    /** jsoup 1.17+ has these on Node, so sources call them on a TextNode. */
+    open fun nextElementSibling(): Element? {
+        var sibling = nodeImpl.nextSibling()
+        while (sibling != null && sibling !is KsoupElement) sibling = sibling.nextSibling()
+        return (sibling as? KsoupElement)?.let { Element(it) }
+    }
+
+    open fun previousElementSibling(): Element? {
+        var sibling = nodeImpl.previousSibling()
+        while (sibling != null && sibling !is KsoupElement) sibling = sibling.previousSibling()
+        return (sibling as? KsoupElement)?.let { Element(it) }
+    }
+
     fun firstChild(): Node? = nodeImpl.firstChild()?.let(::wrapNode)
 
     fun lastChild(): Node? = nodeImpl.lastChild()?.let(::wrapNode)
