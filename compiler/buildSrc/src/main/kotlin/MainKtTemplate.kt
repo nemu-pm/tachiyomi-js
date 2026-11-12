@@ -16,6 +16,7 @@ object MainKtTemplate {
 package tachiyomi.generated
 
 import keiyoushi.source.Generated
+import keiyoushi.source.registerAssets
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -96,7 +97,8 @@ private fun error(e: Throwable): String {
     }.toString().also { logBuffer.clear() }
 }
 
-private val instance: Any = Generated()
+// Assets first: a source may read i18n messages or scripts while constructing.
+private val instance: Any = run { registerAssets(); Generated() }
 private val sources: List<Source> = when (instance) {
     is SourceFactory -> instance.createSources()
     is Source -> listOf(instance)

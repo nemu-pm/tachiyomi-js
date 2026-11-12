@@ -59,6 +59,8 @@ class TachiyomiPlugin : Plugin<Project> {
             sources.set(config.metadata.resolveSources())
             preprocessedDir.set(preprocessedSrcDir)
             translationsFile.set(config.translationsFile)
+            assetDirs.set(config.assetDirs.map { it.absolutePath })
+            assetFiles.from(config.assetDirs)
             outputDir.set(generatedSrcDir)
         }
 

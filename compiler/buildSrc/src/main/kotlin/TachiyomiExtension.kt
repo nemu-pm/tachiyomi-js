@@ -36,6 +36,8 @@ data class ExtensionConfig(
     val theme: ThemeMetadata?,
     val multisrcPath: File?,
     val libPaths: List<File>,
+    /** `assets/` folders packaged into the APK upstream (extension, theme, libs); served from ResourceRegistry here. */
+    val assetDirs: List<File>,
     val iconFile: File?,
     val translationsFile: File,
 ) {
@@ -70,6 +72,11 @@ data class ExtensionConfig(
                 .map { File(extRootFile, "lib/$it/src") }
                 .filter { it.exists() }
 
+            val assetDirs = (listOf(File(extDir, "assets")) +
+                listOfNotNull(metadata.theme?.let { File(extRootFile, "lib-multisrc/$it/assets") }) +
+                (metadata.libDeps + (theme?.libDeps ?: emptyList())).distinct().map { File(extRootFile, "lib/$it/assets") })
+                .filter { it.isDirectory }
+
             // Find icon
             val extensionResPath = File(extDir, "res")
             val iconDensities = listOf("xxhdpi", "hdpi", "xhdpi", "xxxhdpi", "mdpi")
@@ -86,6 +93,7 @@ data class ExtensionConfig(
                 theme = theme,
                 multisrcPath = multisrcPath?.takeIf { it.exists() },
                 libPaths = libPaths,
+                assetDirs = assetDirs,
                 iconFile = iconFile,
                 translationsFile = File(extRootFile, "core/translations/strings.json"),
             )
