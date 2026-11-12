@@ -46,6 +46,9 @@ class Buffer : BufferedSource, BufferedSink {
         return data[head + pos.toInt()]
     }
 
+    /** okio's `buffer[pos]` index operator. */
+    operator fun get(pos: Long): Byte = getByte(pos)
+
     fun completeSegmentByteCount(): Long = size
 
     fun readFrom(input: InputStream): Buffer = write(input.readBytes())

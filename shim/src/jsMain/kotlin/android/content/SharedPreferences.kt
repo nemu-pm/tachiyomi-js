@@ -14,7 +14,10 @@ interface SharedPreferences {
     fun contains(key: String): Boolean
     fun edit(): Editor
     fun getAll(): Map<String, *>
-    
+
+    /** Kotlin/JVM reads the Java getter as `prefs.all`; the shim's getter is a plain Kotlin function. */
+    val all: Map<String, *> get() = getAll()
+
     interface Editor {
         fun putString(key: String, value: String?): Editor
         fun putStringSet(key: String, values: Set<String>?): Editor
