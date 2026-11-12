@@ -4,9 +4,10 @@ package java.util
  * Java Locale shim.
  */
 class Locale private constructor(
-    private val language: String,
-    private val country: String = "",
-    private val variant: String = ""
+    /** Public like the JVM's synthetic `locale.language`, which Kotlin/JS does not derive from `getLanguage()`. */
+    val language: String,
+    val country: String = "",
+    val variant: String = ""
 ) {
     fun getLanguage(): String = language
     fun getCountry(): String = country
@@ -73,6 +74,14 @@ class Locale private constructor(
         val CHINESE = Locale("zh")
         val SIMPLIFIED_CHINESE = Locale("zh", "CN")
         val TRADITIONAL_CHINESE = Locale("zh", "TW")
+        val CHINA = SIMPLIFIED_CHINESE
+        val PRC = SIMPLIFIED_CHINESE
+        val TAIWAN = TRADITIONAL_CHINESE
+        val FRANCE = Locale("fr", "FR")
+        val GERMANY = Locale("de", "DE")
+        val ITALY = Locale("it", "IT")
+        val CANADA = Locale("en", "CA")
+        val CANADA_FRENCH = Locale("fr", "CA")
         val ROOT = Locale("")
         
         fun getDefault(): Locale = US
