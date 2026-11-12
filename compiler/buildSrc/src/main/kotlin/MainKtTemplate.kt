@@ -367,23 +367,54 @@ fun searchManga(sourceId: String, page: Int, query: String): String = try {
     ))
 } catch (e: Throwable) { error(e) }
 
+/**
+ * Build the SManga a source receives. The app always hands sources the library row (title, cover, ...),
+ * and sources read from it (`details.title = manga.title`), so callers pass what they know as [mangaJson]
+ * (a MangaDto; may be empty). [mangaUrl] wins over the JSON's url.
+ */
+private fun inputManga(mangaUrl: String, mangaJson: String): SManga {
+    val dto = mangaJson.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString<MangaDto>(it) }.getOrNull() }
+    return SManga.create().apply {
+        url = mangaUrl
+        title = dto?.title ?: ""
+        artist = dto?.artist
+        author = dto?.author
+        description = dto?.description
+        genre = dto?.genre?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+        status = dto?.status ?: 0
+        thumbnail_url = dto?.thumbnailUrl
+        initialized = dto?.initialized ?: false
+    }
+}
+
 @JsExport
-fun getMangaDetails(sourceId: String, mangaUrl: String): String = try {
+fun getMangaDetails(sourceId: String, mangaUrl: String, mangaJson: String = ""): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
     // extensions-lib 1.6 merged details and chapters into getMangaUpdate(manga, chapters, fetchDetails, fetchChapters).
-    val manga = SManga.create().apply { url = mangaUrl }
+    val manga = inputManga(mangaUrl, mangaJson)
     val result = runBlocking { src.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false) }.manga
-    // Copy URL from input manga - sources don't always set it
-    if (result.url.isEmpty()) result.url = mangaUrl
-    success(result.toDto())
+    // Merge like the app does: the row keeps its url, the fetched fields win where the source set them.
+    // url and title are lateinit on SMangaImpl; sources often leave them unset in details.
+    val merged = manga.copy().apply {
+        runCatching { result.title }.getOrNull()?.takeIf { it.isNotBlank() }?.let { title = it }
+        result.artist?.let { artist = it }
+        result.author?.let { author = it }
+        result.description?.let { description = it }
+        result.genre?.let { genre = it }
+        result.thumbnail_url?.let { thumbnail_url = it }
+        status = result.status
+        update_strategy = result.update_strategy
+        initialized = true
+    }
+    success(merged.toDto())
 } catch (e: Throwable) { error(e) }
 
 @JsExport
-fun getChapterList(sourceId: String, mangaUrl: String): String = try {
+fun getChapterList(sourceId: String, mangaUrl: String, mangaJson: String = ""): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
-    val manga = SManga.create().apply { url = mangaUrl }
+    val manga = inputManga(mangaUrl, mangaJson)
     val result = runBlocking { src.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true) }.chapters
     success(result.map { it.toDto() })
 } catch (e: Throwable) { error(e) }
