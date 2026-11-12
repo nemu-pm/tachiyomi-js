@@ -166,7 +166,8 @@ abstract class Calendar protected constructor(zone: TimeZone, locale: Locale) : 
         return ((date.toEpochDay() - week1.toEpochDay()) / 7).toInt() + 1
     }
 
-    fun get(field: Int): Int {
+    // Kotlin lets `calendar[Calendar.YEAR]` / `calendar[Calendar.YEAR] = y` index JVM Calendar; keep that.
+    operator fun get(field: Int): Int {
         val z = zdt()
         return when (field) {
             ERA -> if (z.year > 0) AD else BC
@@ -190,7 +191,7 @@ abstract class Calendar protected constructor(zone: TimeZone, locale: Locale) : 
         }
     }
 
-    fun set(field: Int, value: Int) {
+    operator fun set(field: Int, value: Int) {
         if (field < 0 || field >= FIELD_COUNT) throw IllegalArgumentException("Unknown calendar field: $field")
         if (field == ZONE_OFFSET || field == DST_OFFSET) return
         if (field == HOUR_OF_DAY) hourMode = 24 else if (field == HOUR || field == AM_PM) hourMode = 12
