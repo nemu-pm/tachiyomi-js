@@ -250,7 +250,11 @@ open class Context {
     companion object {
         const val MODE_PRIVATE = 0
     }
-    
+
+    /** The host app's id; androidx names the default preferences file after it. */
+    open val packageName: String get() = "eu.kanade.tachiyomi"
+    open val applicationContext: Context get() = this
+
     open fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
         return BridgedSharedPreferences.getInstance(name)
     }
