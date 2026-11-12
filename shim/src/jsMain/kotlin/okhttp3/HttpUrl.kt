@@ -209,9 +209,9 @@ class HttpUrl private constructor(
             encodedQueryNamesAndValues!!.add(value?.let { canonicalize(it, QUERY_COMPONENT_ENCODE_SET, plusIsSpace = true) })
         }
 
-        /** Convenience kept from the earlier shim: one parameter per value. */
-        fun addQueryParameter(name: String, values: Iterable<String>?): Builder = apply {
-            values?.forEach { addQueryParameter(name, it) }
+        /** Convenience kept from the earlier shim: one parameter per value. Non-null so `addQueryParameter(name, null)` resolves to the OkHttp overload. */
+        fun addQueryParameter(name: String, values: Iterable<String>): Builder = apply {
+            values.forEach { addQueryParameter(name, it) }
         }
 
         fun addEncodedQueryParameter(encodedName: String, encodedValue: String?): Builder = apply {
