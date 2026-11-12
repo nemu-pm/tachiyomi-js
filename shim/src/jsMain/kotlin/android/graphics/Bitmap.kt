@@ -134,6 +134,11 @@ class Bitmap private constructor(
      */
     val isRecycled: Boolean = false
 
+    /** Pixels are always packed ARGB here; nullable like the Android getter. */
+    val config: Config? = Config.ARGB_8888
+
+    fun getConfig(): Config? = config
+
     enum class Config {
         ALPHA_8,
         RGB_565,
