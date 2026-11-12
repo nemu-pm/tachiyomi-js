@@ -358,8 +358,10 @@ export const all = buildCommand({
       log(pc.red(`  ✗ popular: ${e}`));
     }
 
-    // Test 2: Latest
-    try {
+    // Test 2: Latest (the app hides the tab when the source has no latest feed; calling it throws)
+    if (!source.supportsLatest) {
+      log(pc.dim("Skipping latest (source has no latest feed)"));
+    } else try {
       log(pc.dim("Testing latest..."));
       const latest = unwrapResult<MangasPage>(exports.getLatestUpdates(sourceId, 1));
       const count = latest.mangas?.length ?? 0;
@@ -475,8 +477,8 @@ export const all = buildCommand({
       const imageResults: Array<{ page: number; format: string | null; size: number }> = [];
 
       for (const page of samplePages) {
+        // An empty imageUrl is normal: fetchImage asks the source for it (getImageUrl) first.
         const imageUrl = page.imageUrl || "";
-        if (!imageUrl) continue;
 
         try {
           const base64 = unwrapResult<string>(
