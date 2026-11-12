@@ -198,16 +198,39 @@ class KtsBlock(val start: Int, val end: Int, val body: String) {
             return out
         }
 
-        /** Index of the `}` matching the `{` at [open], skipping string literals. */
+        /** Index of the `}` matching the `{` at [open], skipping string and char literals and comments. */
         fun matchBrace(text: String, open: Int): Int? {
             var depth = 0
             var i = open
-            var inString = false
             while (i < text.length) {
                 val c = text[i]
                 when {
-                    inString -> if (c == '\\') i++ else if (c == '"') inString = false
-                    c == '"' -> inString = true
+                    text.startsWith("\"\"\"", i) -> {
+                        // Raw strings have no escapes; a run of quotes at the end belongs to the delimiter (`""""x""""`).
+                        val close = text.indexOf("\"\"\"", i + 3)
+                        if (close < 0) return null
+                        i = close + 3
+                        while (i < text.length && text[i] == '"') i++
+                        continue
+                    }
+                    c == '"' || c == '\'' -> {
+                        i++
+                        while (i < text.length && text[i] != c) {
+                            if (text[i] == '\\') i++
+                            i++
+                        }
+                    }
+                    text.startsWith("//", i) -> {
+                        val eol = text.indexOf('\n', i)
+                        i = if (eol < 0) text.length else eol
+                        continue
+                    }
+                    text.startsWith("/*", i) -> {
+                        val close = text.indexOf("*/", i + 2)
+                        if (close < 0) return null
+                        i = close + 2
+                        continue
+                    }
                     c == '{' -> depth++
                     c == '}' -> { depth--; if (depth == 0) return i }
                 }
