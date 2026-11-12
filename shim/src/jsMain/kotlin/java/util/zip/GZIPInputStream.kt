@@ -107,13 +107,13 @@ private fun decompressGzip(data: ByteArray): ByteArray? {
     // The rest (minus 8 byte trailer) is DEFLATE compressed data
     val deflateData = data.copyOfRange(pos, data.size - 8)
     
-    return inflate(deflateData)
+    return inflateRaw(deflateData)
 }
 
 /**
  * Inflate DEFLATE compressed data (raw DEFLATE, no zlib header).
  */
-private fun inflate(data: ByteArray): ByteArray? {
+internal fun inflateRaw(data: ByteArray): ByteArray? {
     if (data.isEmpty()) return ByteArray(0)
     
     val output = mutableListOf<Byte>()

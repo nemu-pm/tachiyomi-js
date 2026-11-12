@@ -10,6 +10,9 @@ class Locale private constructor(
 ) {
     fun getLanguage(): String = language
     fun getCountry(): String = country
+    /** Kotlin property access (`locale.language`) does not synthesise from `getLanguage()` on JS. */
+    val languageTag: String get() = toLanguageTag()
+    val displayLanguage: String get() = language
     fun getVariant(): String = variant
     
     fun getDisplayName(locale: Locale): String {

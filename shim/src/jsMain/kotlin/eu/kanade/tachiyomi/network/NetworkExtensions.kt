@@ -1,108 +1,91 @@
 package eu.kanade.tachiyomi.network
 
-import kotlinx.serialization.json.Json
 import okhttp3.CacheControl
+import okhttp3.Call
+import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.Response
-import rx.Observable
+import java.util.concurrent.TimeUnit
+
+// extensions-lib 1.6 request builders.
+
+val DEFAULT_HEADERS: Headers = Headers.Builder().build()
+val DEFAULT_CACHE_CONTROL: CacheControl = CacheControl.Builder().maxAge(10, TimeUnit.MINUTES).build()
+val DEFAULT_BODY: RequestBody = FormBody.Builder().build()
 
 fun GET(
     url: String,
-    headers: Headers = Headers.Builder().build(),
-    cache: CacheControl = CacheControl.Builder().build(),
-): Request {
-    return Request.Builder()
-        .url(url)
-        .headers(headers)
-        .cacheControl(cache)
-        .build()
-}
+    headers: Headers = DEFAULT_HEADERS,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL,
+): Request = GET(url.toHttpUrl(), headers, cache)
 
 fun GET(
-    url: okhttp3.HttpUrl,
-    headers: Headers = Headers.Builder().build(),
-    cache: CacheControl = CacheControl.Builder().build(),
-): Request {
-    return Request.Builder()
-        .url(url)
-        .headers(headers)
-        .cacheControl(cache)
-        .build()
-}
+    url: HttpUrl,
+    headers: Headers = DEFAULT_HEADERS,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL,
+): Request = Request.Builder()
+    .url(url)
+    .headers(headers)
+    .cacheControl(cache)
+    .build()
 
 fun POST(
     url: String,
-    headers: Headers = Headers.Builder().build(),
-    body: okhttp3.RequestBody = okhttp3.FormBody.Builder().build(),
-    cache: CacheControl = CacheControl.Builder().build(),
-): Request {
-    return Request.Builder()
-        .url(url)
-        .headers(headers)
-        .post(body)
-        .cacheControl(cache)
-        .build()
-}
+    headers: Headers = DEFAULT_HEADERS,
+    body: RequestBody = DEFAULT_BODY,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL,
+): Request = Request.Builder()
+    .url(url)
+    .post(body)
+    .headers(headers)
+    .cacheControl(cache)
+    .build()
 
-/**
- * Convert Call to Observable (synchronous execution)
- */
-fun OkHttpClient.Call.asObservable(): Observable<Response> {
-    val call = this
-    return Observable.defer {
-        Observable.just(call.execute())
-    }
-}
+fun PUT(
+    url: String,
+    headers: Headers = DEFAULT_HEADERS,
+    body: RequestBody = DEFAULT_BODY,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL,
+): Request = Request.Builder()
+    .url(url)
+    .put(body)
+    .headers(headers)
+    .cacheControl(cache)
+    .build()
 
-/**
- * Convert Call to Observable with success check
- */
-fun OkHttpClient.Call.asObservableSuccess(): Observable<Response> {
-    return asObservable().map { response ->
-        if (!response.isSuccessful) {
-            throw Exception("HTTP error ${response.code}: ${response.message}")
-        }
-        response
-    }
-}
+fun DELETE(
+    url: String,
+    headers: Headers = DEFAULT_HEADERS,
+    body: RequestBody = DEFAULT_BODY,
+    cache: CacheControl = DEFAULT_CACHE_CONTROL,
+): Request = Request.Builder()
+    .url(url)
+    .delete(body)
+    .headers(headers)
+    .cacheControl(cache)
+    .build()
 
-/**
- * Execute call and check for success
- */
-fun OkHttpClient.Call.awaitSuccess(): Response {
-    val response = execute()
+/** HTTP is synchronous under the host bridge, so awaiting a call is just executing it. */
+suspend fun Call.await(): Response = execute()
+
+suspend fun Call.awaitSuccess(): Response {
+    val response = await()
     if (!response.isSuccessful) {
-        throw Exception("HTTP error ${response.code}: ${response.message}")
+        response.close()
+        throw HttpException(response.code)
     }
     return response
 }
 
-/**
- * Execute call
- */
-fun OkHttpClient.Call.await(): Response {
-    return execute()
+fun interface ProgressListener {
+    fun update(bytesRead: Long, contentLength: Long, done: Boolean)
 }
 
-/**
- * Extension to create a call with progress tracking (no-op for now)
- */
-fun OkHttpClient.newCachelessCallWithProgress(request: Request, page: eu.kanade.tachiyomi.source.model.Page): OkHttpClient.Call {
-    return newCall(request)
-}
-
-/**
- * Parse response body as JSON
- */
-inline fun <reified T> Response.parseAs(): T {
-    return Json { ignoreUnknownKeys = true }.decodeFromString(body.string())
-}
-
-/**
- * Parse response body as JSON with custom Json instance
- */
-inline fun <reified T> Response.parseAs(json: Json): T {
-    return json.decodeFromString(body.string())
-}
+/** Progress is not observable through the sync bridge; the listener is called once on completion by the host. */
+fun OkHttpClient.newCachelessCallWithProgress(request: Request, listener: ProgressListener): Call =
+    newCall(request.newBuilder().cacheControl(CacheControl.Builder().noStore().build()).build())

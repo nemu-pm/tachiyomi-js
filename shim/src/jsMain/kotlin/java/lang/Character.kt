@@ -36,7 +36,23 @@ object Character {
     fun isWhitespace(c: Char): Boolean = c == ' ' || c == '\t' || c == '\n' || c == '\r'
     
     fun toLowerCase(c: Char): Char = c.lowercaseChar()
-    
+
     fun toUpperCase(c: Char): Char = c.uppercaseChar()
+
+    fun isHighSurrogate(c: Char): Boolean = c.isHighSurrogate()
+
+    fun isLowSurrogate(c: Char): Boolean = c.isLowSurrogate()
+
+    fun isSurrogate(c: Char): Boolean = c.isSurrogate()
+
+    fun toChars(codePoint: Int): CharArray = codePoint.toChar().let {
+        if (codePoint < 0x10000) charArrayOf(it) else {
+            val v = codePoint - 0x10000
+            charArrayOf(((v ushr 10) + 0xD800).toChar(), ((v and 0x3FF) + 0xDC00).toChar())
+        }
+    }
+
+    const val MIN_VALUE: Char = '\u0000'
+    const val MAX_VALUE: Char = '￿'
 }
 

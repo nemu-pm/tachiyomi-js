@@ -1,5 +1,6 @@
 package javax.crypto
 
+import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import java.security.Key
@@ -13,20 +14,35 @@ import java.math.BigInteger
 /**
  * Cipher implementation for AES and RSA encryption/decryption.
  * Supports:
- * - AES/CBC/PKCS5Padding
+ * - AES/{CBC,ECB,CTR,GCM}/{PKCS5Padding,PKCS7Padding,NoPadding}
  * - RSA/ECB/PKCS1Padding
+ *
+ * `update` buffers and returns nothing; everything is produced by `doFinal`, which is
+ * equivalent for callers that concatenate the two.
  */
 class Cipher private constructor(private val transformation: String) {
-    
+
     private var mode: Int = 0
     private var aesKey: ByteArray = ByteArray(0)
     private var iv: ByteArray = ByteArray(0)
+    private var tagBits: Int = 128
+    private var aad: ByteArray = ByteArray(0)
+    private val pending = java.io.ByteArrayOutputStream()
     private var rsaPublicKey: RSAPublicKeyImpl? = null
     private var rsaPrivateKey: RSAPrivateKeyImpl? = null
     private val isRsa: Boolean = transformation.uppercase().contains("RSA")
-    
+    private val parts = transformation.uppercase().split('/')
+    private val blockMode: String = parts.getOrNull(1) ?: "ECB"
+    private val padding: Boolean = (parts.getOrNull(2) ?: "PKCS5PADDING") != "NOPADDING"
+
+    fun getAlgorithm(): String = transformation
+    fun getBlockSize(): Int = if (isRsa) 0 else 16
+    fun getIV(): ByteArray = iv.copyOf()
+
     fun init(opmode: Int, key: Key) {
         this.mode = opmode
+        pending.reset()
+        aad = ByteArray(0)
         when {
             key is RSAPublicKeyImpl -> rsaPublicKey = key
             key is RSAPrivateKeyImpl -> rsaPrivateKey = key
@@ -39,27 +55,62 @@ class Cipher private constructor(private val transformation: String) {
             else -> throw IllegalArgumentException("Unsupported key type: ${key::class.simpleName}")
         }
     }
-    
-    fun init(opmode: Int, key: Key, params: AlgorithmParameterSpec) {
+
+    fun init(opmode: Int, key: Key, params: AlgorithmParameterSpec?) {
         init(opmode, key)
-        if (params is IvParameterSpec) {
-            this.iv = params.iv
+        when (params) {
+            is IvParameterSpec -> this.iv = params.iv
+            is GCMParameterSpec -> {
+                this.iv = params.iv
+                this.tagBits = params.getTLen()
+            }
+            else -> {}
         }
     }
-    
+
+    fun updateAAD(src: ByteArray) {
+        aad += src
+    }
+
+    fun update(input: ByteArray): ByteArray {
+        pending.write(input, 0, input.size)
+        return ByteArray(0)
+    }
+
+    fun update(input: ByteArray, offset: Int, len: Int): ByteArray {
+        pending.write(input, offset, len)
+        return ByteArray(0)
+    }
+
+    fun doFinal(): ByteArray = doFinal(ByteArray(0))
+
+    fun doFinal(input: ByteArray, offset: Int, len: Int): ByteArray = doFinal(input.copyOfRange(offset, offset + len))
+
     fun doFinal(input: ByteArray): ByteArray {
-        return if (isRsa) {
-            when (mode) {
-                ENCRYPT_MODE -> rsaEncrypt(input)
-                DECRYPT_MODE -> rsaDecrypt(input)
-                else -> throw IllegalStateException("Invalid mode: $mode")
-            }
+        val data = if (pending.size() == 0) {
+            input
         } else {
-            when (mode) {
-                ENCRYPT_MODE -> encryptAesCbc(input, aesKey, iv)
-                DECRYPT_MODE -> decryptAesCbc(input, aesKey, iv)
+            pending.write(input, 0, input.size)
+            pending.toByteArray().also { pending.reset() }
+        }
+        if (isRsa) {
+            return when (mode) {
+                ENCRYPT_MODE -> rsaEncrypt(data)
+                DECRYPT_MODE -> rsaDecrypt(data)
                 else -> throw IllegalStateException("Invalid mode: $mode")
             }
+        }
+        val encrypt = when (mode) {
+            ENCRYPT_MODE -> true
+            DECRYPT_MODE -> false
+            else -> throw IllegalStateException("Invalid mode: $mode")
+        }
+        return when (blockMode) {
+            "CBC" -> if (encrypt) encryptAesCbc(data, aesKey, iv, padding) else decryptAesCbc(data, aesKey, iv, padding)
+            "ECB" -> aesEcb(data, aesKey, encrypt, padding)
+            "CTR" -> aesCtr(data, aesKey, iv)
+            "GCM" -> aesGcm(data, aesKey, iv, aad, tagBits, encrypt)
+            else -> throw java.security.NoSuchAlgorithmException("Unsupported transformation: $transformation")
         }
     }
     
@@ -192,18 +243,20 @@ private fun bigIntToBytes(value: BigInteger, length: Int): ByteArray {
 }
 
 // Pure Kotlin AES implementation
-private fun encryptAesCbc(plaintext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
-    val padded = pkcs7Pad(plaintext, 16)
+private fun encryptAesCbc(plaintext: ByteArray, key: ByteArray, iv: ByteArray, padding: Boolean = true): ByteArray {
+    val padded = if (padding) pkcs7Pad(plaintext, 16) else plaintext
+    if (padded.size % 16 != 0) throw IllegalArgumentException("Input length not multiple of 16 bytes")
+    val expandedKey = expandKey(key)
     val result = ByteArray(padded.size)
     var previousBlock = iv.copyOf()
-    
+
     for (blockIndex in padded.indices step 16) {
         val block = padded.copyOfRange(blockIndex, blockIndex + 16)
         // XOR with previous ciphertext block (or IV)
         for (i in 0 until 16) {
             block[i] = (block[i].toInt() xor previousBlock[i].toInt()).toByte()
         }
-        val encrypted = aesEncryptBlock(block, expandKey(key))
+        val encrypted = aesEncryptBlock(block, expandedKey)
         encrypted.copyInto(result, blockIndex)
         previousBlock = encrypted
     }
@@ -211,8 +264,9 @@ private fun encryptAesCbc(plaintext: ByteArray, key: ByteArray, iv: ByteArray): 
     return result
 }
 
-private fun decryptAesCbc(ciphertext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
-    if (ciphertext.isEmpty() || ciphertext.size % 16 != 0) {
+private fun decryptAesCbc(ciphertext: ByteArray, key: ByteArray, iv: ByteArray, padding: Boolean = true): ByteArray {
+    if (ciphertext.isEmpty()) return ciphertext
+    if (ciphertext.size % 16 != 0) {
         throw IllegalArgumentException("Invalid ciphertext length")
     }
     
@@ -229,8 +283,144 @@ private fun decryptAesCbc(ciphertext: ByteArray, key: ByteArray, iv: ByteArray):
         }
         previousBlock = block
     }
-    
-    return pkcs7Unpad(result)
+
+    return if (padding) pkcs7Unpad(result) else result
+}
+
+private fun aesEcb(input: ByteArray, key: ByteArray, encrypt: Boolean, padding: Boolean): ByteArray {
+    val expandedKey = expandKey(key)
+    val data = if (encrypt && padding) pkcs7Pad(input, 16) else input
+    if (data.size % 16 != 0) throw IllegalArgumentException("Input length not multiple of 16 bytes")
+    val result = ByteArray(data.size)
+    for (blockIndex in data.indices step 16) {
+        val block = data.copyOfRange(blockIndex, blockIndex + 16)
+        val out = if (encrypt) aesEncryptBlock(block, expandedKey) else aesDecryptBlock(block, expandedKey)
+        out.copyInto(result, blockIndex)
+    }
+    return if (!encrypt && padding) pkcs7Unpad(result) else result
+}
+
+/** Counter mode: the whole 128-bit counter increments big-endian (what the JDK does). */
+private fun aesCtr(input: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+    val expandedKey = expandKey(key)
+    val counter = iv.copyOf(16)
+    val result = ByteArray(input.size)
+    var pos = 0
+    while (pos < input.size) {
+        val keystream = aesEncryptBlock(counter, expandedKey)
+        val n = minOf(16, input.size - pos)
+        for (i in 0 until n) result[pos + i] = (input[pos + i].toInt() xor keystream[i].toInt()).toByte()
+        pos += n
+        incrementCounter(counter, 0)
+    }
+    return result
+}
+
+/** Increments the big-endian counter in [block] from the last byte back to index [stop]. */
+private fun incrementCounter(block: ByteArray, stop: Int) {
+    var i = block.size - 1
+    while (i >= stop) {
+        val v = (block[i].toInt() and 0xFF) + 1
+        block[i] = v.toByte()
+        if (v <= 0xFF) return
+        i--
+    }
+}
+
+/** AES-GCM (NIST SP 800-38D); the tag is appended to the ciphertext as the JDK does. */
+private fun aesGcm(input: ByteArray, key: ByteArray, iv: ByteArray, aad: ByteArray, tagBits: Int, encrypt: Boolean): ByteArray {
+    val expandedKey = expandKey(key)
+    val h = bytesToWords(aesEncryptBlock(ByteArray(16), expandedKey))
+    val j0 = if (iv.size == 12) {
+        iv.copyOf(16).also { it[15] = 1 }
+    } else {
+        val padded = iv.copyOf((iv.size + 15) / 16 * 16 + 16)
+        val bits = iv.size.toLong() * 8
+        for (i in 0 until 8) padded[padded.size - 1 - i] = ((bits shr (i * 8)) and 0xFF).toByte()
+        wordsToBytes(ghash(h, padded))
+    }
+    val tagLen = tagBits / 8
+    val plainOrCipher: ByteArray
+    val cipherText: ByteArray
+    if (encrypt) {
+        plainOrCipher = input
+        cipherText = gctr(expandedKey, j0, input)
+    } else {
+        if (input.size < tagLen) throw javax.crypto.AEADBadTagException("Input too short")
+        cipherText = input.copyOfRange(0, input.size - tagLen)
+        plainOrCipher = gctr(expandedKey, j0, cipherText)
+    }
+    val aadPadLen = (aad.size + 15) / 16 * 16
+    val cPadLen = (cipherText.size + 15) / 16 * 16
+    val ghashInput = ByteArray(aadPadLen + cPadLen + 16)
+    aad.copyInto(ghashInput, 0)
+    cipherText.copyInto(ghashInput, aadPadLen)
+    val aadBits = aad.size.toLong() * 8
+    val cBits = cipherText.size.toLong() * 8
+    for (i in 0 until 8) {
+        ghashInput[aadPadLen + cPadLen + 7 - i] = ((aadBits shr (i * 8)) and 0xFF).toByte()
+        ghashInput[aadPadLen + cPadLen + 15 - i] = ((cBits shr (i * 8)) and 0xFF).toByte()
+    }
+    val s = wordsToBytes(ghash(h, ghashInput))
+    val ekj0 = aesEncryptBlock(j0, expandedKey)
+    val tag = ByteArray(tagLen) { (s[it].toInt() xor ekj0[it].toInt()).toByte() }
+    return if (encrypt) {
+        cipherText + tag
+    } else {
+        val given = input.copyOfRange(input.size - tagLen, input.size)
+        if (!tag.contentEquals(given)) throw javax.crypto.AEADBadTagException("Tag mismatch")
+        plainOrCipher
+    }
+}
+
+private fun gctr(expandedKey: IntArray, j0: ByteArray, input: ByteArray): ByteArray {
+    val counter = j0.copyOf()
+    incrementCounter(counter, 12)
+    val result = ByteArray(input.size)
+    var pos = 0
+    while (pos < input.size) {
+        val keystream = aesEncryptBlock(counter, expandedKey)
+        val n = minOf(16, input.size - pos)
+        for (i in 0 until n) result[pos + i] = (input[pos + i].toInt() xor keystream[i].toInt()).toByte()
+        pos += n
+        incrementCounter(counter, 12)
+    }
+    return result
+}
+
+private fun bytesToWords(b: ByteArray): IntArray = IntArray(4) { i ->
+    ((b[i * 4].toInt() and 0xFF) shl 24) or ((b[i * 4 + 1].toInt() and 0xFF) shl 16) or
+        ((b[i * 4 + 2].toInt() and 0xFF) shl 8) or (b[i * 4 + 3].toInt() and 0xFF)
+}
+
+private fun wordsToBytes(w: IntArray): ByteArray = ByteArray(16) { i -> (w[i / 4] ushr (24 - (i % 4) * 8)).toByte() }
+
+private fun ghash(h: IntArray, data: ByteArray): IntArray {
+    var y = IntArray(4)
+    for (blockIndex in data.indices step 16) {
+        val x = bytesToWords(data.copyOfRange(blockIndex, blockIndex + 16))
+        for (i in 0 until 4) y[i] = y[i] xor x[i]
+        y = gfMultiply(y, h)
+    }
+    return y
+}
+
+/** Multiplication in GF(2^128) with the GCM bit ordering. */
+private fun gfMultiply(x: IntArray, h: IntArray): IntArray {
+    val z = IntArray(4)
+    val v = h.copyOf()
+    for (i in 0 until 128) {
+        if ((x[i ushr 5] ushr (31 - (i and 31))) and 1 == 1) {
+            for (j in 0 until 4) z[j] = z[j] xor v[j]
+        }
+        val lsb = v[3] and 1
+        v[3] = (v[3] ushr 1) or (v[2] shl 31)
+        v[2] = (v[2] ushr 1) or (v[1] shl 31)
+        v[1] = (v[1] ushr 1) or (v[0] shl 31)
+        v[0] = v[0] ushr 1
+        if (lsb == 1) v[0] = v[0] xor 0xE1000000.toInt()
+    }
+    return z
 }
 
 private fun pkcs7Pad(data: ByteArray, blockSize: Int): ByteArray {

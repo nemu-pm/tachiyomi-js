@@ -1,114 +1,91 @@
 package java.io
 
-abstract class InputStream {
+import java.nio.charset.Charset
+import java.nio.charset.Charsets
+
+abstract class InputStream : Closeable {
     abstract fun read(): Int
+
     open fun read(b: ByteArray): Int = read(b, 0, b.size)
-    open fun read(b: ByteArray, off: Int, len: Int): Int = -1
-    open fun close() {}
+
+    open fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (len == 0) return 0
+        var n = 0
+        while (n < len) {
+            val c = read()
+            if (c == -1) break
+            b[off + n] = c.toByte()
+            n++
+        }
+        return if (n == 0) -1 else n
+    }
+
+    open fun skip(n: Long): Long {
+        var skipped = 0L
+        while (skipped < n && read() != -1) skipped++
+        return skipped
+    }
+
     open fun available(): Int = 0
-    
-    fun readBytes(): ByteArray {
-        val buffer = mutableListOf<Byte>()
-        val buf = ByteArray(4096)
+
+    open fun markSupported(): Boolean = false
+
+    override fun close() {}
+
+    open fun readBytes(): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(8192)
         while (true) {
-            val n = read(buf)
+            val n = read(buf, 0, buf.size)
             if (n == -1) break
-            for (i in 0 until n) {
-                buffer.add(buf[i])
-            }
+            out.write(buf, 0, n)
         }
-        return buffer.toByteArray()
+        return out.toByteArray()
     }
+
+    fun readAllBytes(): ByteArray = readBytes()
+
+    fun reader(charset: Charset = Charsets.UTF_8): InputStreamReader = InputStreamReader(this, charset)
+
+    fun bufferedReader(charset: Charset = Charsets.UTF_8): BufferedReader = BufferedReader(InputStreamReader(this, charset))
 }
 
-class ByteArrayInputStream(private val buf: ByteArray) : InputStream() {
-    private var pos = 0
-    
-    override fun read(): Int {
-        return if (pos < buf.size) buf[pos++].toInt() and 0xFF else -1
-    }
-    
+class ByteArrayInputStream(private val buf: ByteArray, offset: Int = 0, length: Int = buf.size - offset) : InputStream() {
+    private var pos = offset
+    private val end = offset + length
+    private var mark = offset
+
+    override fun read(): Int = if (pos < end) buf[pos++].toInt() and 0xFF else -1
+
     override fun read(b: ByteArray, off: Int, len: Int): Int {
-        if (pos >= buf.size) return -1
-        val count = minOf(len, buf.size - pos)
-        buf.copyInto(b, off, pos, pos + count)
-        pos += count
-        return count
+        if (pos >= end) return -1
+        val n = minOf(len, end - pos)
+        buf.copyInto(b, off, pos, pos + n)
+        pos += n
+        return n
     }
-    
-    override fun available(): Int = buf.size - pos
-}
 
-/**
- * InputStreamReader for reading characters from an InputStream.
- */
-class InputStreamReader(private val inputStream: InputStream) {
-    fun read(): Int {
-        return inputStream.read()
+    override fun skip(n: Long): Long {
+        val k = minOf(n, (end - pos).toLong()).coerceAtLeast(0L)
+        pos += k.toInt()
+        return k
     }
-    
-    fun read(cbuf: CharArray, off: Int, len: Int): Int {
-        // Simple UTF-8 byte-to-char conversion
-        var count = 0
-        while (count < len) {
-            val b = inputStream.read()
-            if (b == -1) {
-                return if (count == 0) -1 else count
-            }
-            cbuf[off + count] = b.toChar()
-            count++
-        }
-        return count
+
+    override fun available(): Int = end - pos
+
+    override fun markSupported(): Boolean = true
+
+    fun mark(readLimit: Int) {
+        mark = pos
     }
-    
-    fun close() {
-        inputStream.close()
+
+    fun reset() {
+        pos = mark
+    }
+
+    override fun readBytes(): ByteArray {
+        val rest = buf.copyOfRange(pos, end)
+        pos = end
+        return rest
     }
 }
-
-/**
- * BufferedReader for reading text from a character stream.
- */
-class BufferedReader(private val reader: InputStreamReader) {
-    private val buffer = StringBuilder()
-    
-    fun readLine(): String? {
-        val line = StringBuilder()
-        while (true) {
-            val c = reader.read()
-            if (c == -1) {
-                return if (line.isEmpty()) null else line.toString()
-            }
-            if (c.toChar() == '\n') {
-                return line.toString()
-            }
-            if (c.toChar() != '\r') {
-                line.append(c.toChar())
-            }
-        }
-    }
-    
-    fun readText(): String {
-        val result = StringBuilder()
-        val buf = CharArray(4096)
-        while (true) {
-            val n = reader.read(buf, 0, buf.size)
-            if (n == -1) break
-            result.appendRange(buf, 0, n)
-        }
-        return result.toString()
-    }
-    
-    fun close() {
-        reader.close()
-    }
-    
-    inline fun <T> use(block: (BufferedReader) -> T): T {
-        return try {
-            block(this)
-        } finally {
-            close()
-        }
-    }
-}
-
