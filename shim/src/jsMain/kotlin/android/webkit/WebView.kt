@@ -1,17 +1,18 @@
 package android.webkit
 
+import android.net.Uri
 import java.io.InputStream
 
 // Placeholders for the Android WebView types that keiyoushi.utils.WebView's signatures mention.
 // Nothing here renders; the sandbox has no WebView, so these only let sources compile.
 
 open class WebResourceRequest(
-    val url: String,
+    val url: Uri,
     val method: String = "GET",
     val requestHeaders: Map<String, String> = emptyMap(),
     val isForMainFrame: Boolean = true,
 ) {
-    fun getUrl(): String = url
+    fun getUrl(): Uri = url
     fun getMethod(): String = method
     fun getRequestHeaders(): Map<String, String> = requestHeaders
     fun hasGesture(): Boolean = false

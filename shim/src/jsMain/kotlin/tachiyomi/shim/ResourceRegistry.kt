@@ -15,6 +15,11 @@ object ResourceRegistry {
         resources[normalize(path)] = content
     }
 
+    /** Generated code embeds assets as base64, which needs no escaping in a Kotlin literal. */
+    fun registerBase64(path: String, base64: String) {
+        resources[normalize(path)] = kotlin.io.encoding.Base64.decode(base64)
+    }
+
     fun get(path: String): ByteArray? = resources[normalize(path)] ?: hostResource(normalize(path))
 
     fun has(path: String): Boolean = get(path) != null

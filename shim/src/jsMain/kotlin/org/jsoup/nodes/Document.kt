@@ -529,6 +529,11 @@ class Elements internal constructor(private val impl: KsoupElements) : AbstractL
     fun select(cssQuery: String): Elements = Elements(impl.select(cssQuery))
 
     /**
+     * First element matching a CSS selector within these elements, or null (jsoup 1.19).
+     */
+    fun selectFirst(cssQuery: String): Element? = impl.select(cssQuery).firstOrNull()?.let { Element(it) }
+
+    /**
      * Filter elements that do not match the selector.
      */
     fun not(cssQuery: String): Elements = Elements(impl.not(cssQuery))

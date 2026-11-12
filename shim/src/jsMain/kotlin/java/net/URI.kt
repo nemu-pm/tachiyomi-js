@@ -106,6 +106,17 @@ class URL(private val spec: String) {
     fun toURI(): URI = uri
     fun toExternalForm(): String = spec
     override fun toString(): String = spec
+
+    /** Only `resource:` URLs (from ClassLoader.getResource) open; the sandbox fetches nothing here. */
+    fun openStream(): java.io.InputStream {
+        require(spec.startsWith("resource:")) { "URL.openStream is only supported for resources: $spec" }
+        val path = spec.removePrefix("resource:").trimStart('/')
+        val bytes = tachiyomi.shim.ResourceRegistry.get(path) ?: throw java.io.IOException("resource not found: $path")
+        return java.io.ByteArrayInputStream(bytes)
+    }
+
+    fun readBytes(): ByteArray = openStream().readBytes()
+    fun readText(): String = readBytes().decodeToString()
 }
 
 class URISyntaxException(input: String, reason: String) : Exception("$reason: $input")

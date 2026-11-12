@@ -18,6 +18,10 @@ class Class<T> internal constructor(val kClass: KClass<*>?, val name: String) {
     fun getCanonicalName(): String = canonicalName
     fun getClassLoader(): ClassLoader = classLoader
 
+    /** `javaClass.getResource("/assets/x")`: absolute names only, as the sandbox has no packages on a classpath. */
+    fun getResource(name: String): java.net.URL? = classLoader.getResource(name)
+    fun getResourceAsStream(name: String): InputStream? = classLoader.getResourceAsStream(name)
+
     fun isInstance(obj: Any?): Boolean = obj != null && kClass?.isInstance(obj) == true
 
     @Suppress("UNCHECKED_CAST")
