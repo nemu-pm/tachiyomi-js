@@ -5,30 +5,27 @@
 object MainKtTemplate {
     
     /**
-     * Generate Main.kt content for an extension.
-     * @param packageName Full package name (e.g., "eu.kanade.tachiyomi.extension.all.mangadex")
-     * @param extClassName Extension class name (e.g., "MangaDex")
+     * Generate Main.kt content for an extension. The entry point is always
+     * `keiyoushi.source.Generated` (see SourceGenerator), either a Source or a SourceFactory.
      */
-    fun generate(packageName: String, extClassName: String): String {
-        return TEMPLATE
-            .replace("{{PACKAGE_NAME}}", packageName)
-            .replace("{{EXT_CLASS_NAME}}", extClassName)
-    }
-    
+    fun generate(): String = TEMPLATE
+
     private val TEMPLATE = """
 @file:OptIn(ExperimentalJsExport::class)
 
 package tachiyomi.generated
 
-import {{PACKAGE_NAME}}.{{EXT_CLASS_NAME}}
+import keiyoushi.source.Generated
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -99,7 +96,7 @@ private fun error(e: Throwable): String {
     }.toString().also { logBuffer.clear() }
 }
 
-private val instance = {{EXT_CLASS_NAME}}()
+private val instance: Any = Generated()
 private val sources: List<Source> = when (instance) {
     is SourceFactory -> instance.createSources()
     is Source -> listOf(instance)
@@ -168,7 +165,7 @@ private fun SChapter.toDto() = ChapterDto(
     scanlator = scanlator
 )
 
-private fun eu.kanade.tachiyomi.source.model.Page.toDto() = PageDto(
+private fun Page.toDto() = PageDto(
     index = index,
     url = url,
     imageUrl = imageUrl
@@ -185,7 +182,7 @@ fun getManifest(): String = try {
             add(buildJsonObject {
                 put("id", src.id.toString())
                 put("name", src.name)
-                put("lang", src.lang)
+                put("lang", (src as? CatalogueSource)?.lang ?: "")
                 if (src is HttpSource) {
                     put("baseUrl", src.baseUrl)
                 }
@@ -340,7 +337,7 @@ private fun applyStateToFilter(filter: Filter<*>, state: JsonObject) {
 fun getPopularManga(sourceId: String, page: Int): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
-    val result = src.getPopularManga(page)
+    val result = runBlocking { src.getPopularManga(page) }
     success(MangasPageDto(
         mangas = result.mangas.map { it.toDto() },
         hasNextPage = result.hasNextPage
@@ -351,7 +348,7 @@ fun getPopularManga(sourceId: String, page: Int): String = try {
 fun getLatestUpdates(sourceId: String, page: Int): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
-    val result = src.getLatestUpdates(page)
+    val result = runBlocking { src.getLatestUpdates(page) }
     success(MangasPageDto(
         mangas = result.mangas.map { it.toDto() },
         hasNextPage = result.hasNextPage
@@ -363,7 +360,7 @@ fun searchManga(sourceId: String, page: Int, query: String): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
     val filters = filterCache[sourceId] ?: FilterList()
-    val result = src.getSearchManga(page, query, filters)
+    val result = runBlocking { src.getSearchManga(page, query, filters) }
     success(MangasPageDto(
         mangas = result.mangas.map { it.toDto() },
         hasNextPage = result.hasNextPage
@@ -374,9 +371,10 @@ fun searchManga(sourceId: String, page: Int, query: String): String = try {
 fun getMangaDetails(sourceId: String, mangaUrl: String): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
+    // extensions-lib 1.6 merged details and chapters into getMangaUpdate(manga, chapters, fetchDetails, fetchChapters).
     val manga = SManga.create().apply { url = mangaUrl }
-    val result = src.getMangaDetails(manga)
-    // Copy URL from input manga - getMangaDetails doesn't always set it
+    val result = runBlocking { src.getMangaUpdate(manga, emptyList(), fetchDetails = true, fetchChapters = false) }.manga
+    // Copy URL from input manga - sources don't always set it
     if (result.url.isEmpty()) result.url = mangaUrl
     success(result.toDto())
 } catch (e: Throwable) { error(e) }
@@ -386,7 +384,7 @@ fun getChapterList(sourceId: String, mangaUrl: String): String = try {
     val src = sourcesById[sourceId] as? CatalogueSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
     val manga = SManga.create().apply { url = mangaUrl }
-    val result = src.getChapterList(manga)
+    val result = runBlocking { src.getMangaUpdate(manga, emptyList(), fetchDetails = false, fetchChapters = true) }.chapters
     success(result.map { it.toDto() })
 } catch (e: Throwable) { error(e) }
 
@@ -395,8 +393,19 @@ fun getPageList(sourceId: String, chapterUrl: String): String = try {
     val src = sourcesById[sourceId] as? HttpSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
     val chapter = SChapter.create().apply { url = chapterUrl }
-    val result = src.getPageList(chapter)
+    val result = runBlocking { src.getPageList(chapter) }
     success(result.map { it.toDto() })
+} catch (e: Throwable) { error(e) }
+
+/**
+ * Resolve a page's image URL when getPageList left it empty (sources that fetch it per page).
+ */
+@JsExport
+fun getImageUrl(sourceId: String, pageIndex: Int, pageUrl: String): String = try {
+    val src = sourcesById[sourceId] as? HttpSource
+        ?: throw Exception("Source not found: ${"$"}sourceId")
+    val page = Page(pageIndex, pageUrl)
+    success(runBlocking { src.getImageUrl(page) })
 } catch (e: Throwable) { error(e) }
 
 /**
@@ -408,8 +417,10 @@ fun getPageList(sourceId: String, chapterUrl: String): String = try {
 fun fetchImage(sourceId: String, pageUrl: String, pageImageUrl: String): String = try {
     val src = sourcesById[sourceId] as? HttpSource
         ?: throw Exception("Source not found: ${"$"}sourceId")
-    val page = eu.kanade.tachiyomi.source.model.Page(0, pageUrl, pageImageUrl)
-    val request = src.imageRequest(page)
+    val page = Page(0, pageUrl, pageImageUrl.ifEmpty { null })
+    if (page.imageUrl == null) page.imageUrl = runBlocking { src.getImageUrl(page) }
+    // imageRequest is protected in 1.6; imageRequestForHost is the public entry the app uses.
+    val request = src.imageRequestForHost(page)
     
     // Execute through client WITH interceptors (needed for image descrambling)
     val response = src.client.newCall(request).execute()
@@ -478,7 +489,7 @@ fun getSourceInfo(index: Int): String {
     return success(mapOf(
         "id" to src.id.toString(),
         "name" to src.name,
-        "lang" to src.lang,
+        "lang" to ((src as? CatalogueSource)?.lang ?: ""),
         "baseUrl" to (httpSrc?.baseUrl ?: "")
     ))
 }
