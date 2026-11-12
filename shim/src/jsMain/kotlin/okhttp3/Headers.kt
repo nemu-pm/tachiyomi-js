@@ -46,8 +46,12 @@ class Headers private constructor(
         return result
     }
 
-    /** Kept from the earlier shim: lower-cased names to their values. */
-    fun toMap(): Map<String, List<String>> = toMultimap()
+    /** As the stdlib `Iterable<Pair>.toMap()` the JVM resolves this to: names as sent, last value wins. */
+    fun toMap(): Map<String, String> {
+        val result = LinkedHashMap<String, String>()
+        for (i in namesAndValues.indices step 2) result[namesAndValues[i]] = namesAndValues[i + 1]
+        return result
+    }
 
     override fun iterator(): Iterator<Pair<String, String>> = (0 until size).map { this[it] }.iterator()
 

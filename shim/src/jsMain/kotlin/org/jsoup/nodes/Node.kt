@@ -48,6 +48,10 @@ open class Node(internal val nodeImpl: KsoupNode) {
         return this
     }
 
+    fun replaceWith(replacement: Node) {
+        nodeImpl.replaceWith(replacement.nodeImpl)
+    }
+
     override fun toString(): String = nodeImpl.toString()
 
     override fun equals(other: Any?): Boolean {
