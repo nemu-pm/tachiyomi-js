@@ -45,7 +45,8 @@ object CodeTransformations {
     
     /** Files that have JS-compatible shims - skip preprocessing */
     val shimmedFiles = setOf(
-        "keiyoushi/lib/i18n/Intl.kt"
+        "keiyoushi/lib/i18n/Intl.kt",
+        "keiyoushi/lib/cronet/Cronet.kt",
     )
 }
 

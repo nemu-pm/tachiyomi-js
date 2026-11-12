@@ -45,7 +45,7 @@ data class ExtensionConfig(
 
     companion object {
         /** Libraries the shim already provides; their upstream sources are not compiled in. */
-        private val shimmedLibs = setOf("i18n")
+        private val shimmedLibs = setOf("i18n", "cronet")
 
         /**
          * Resolve extension configuration from DSL, properties, and metadata.
